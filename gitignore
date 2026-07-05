@@ -1,0 +1,86 @@
+# ============================================================
+# Secrets & configuration locale — NE JAMAIS COMMITTER
+# ============================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+aws-credentials*
+
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.Python
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# ============================================================
+# Node / Frontend
+# ============================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+dist/
+build/
+.next/
+out/
+.turbo/
+
+# ============================================================
+# AWS / Lambda
+# ============================================================
+.aws-sam/
+samconfig.toml
+*.zip
+lambda-package/
+.serverless/
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# ============================================================
+# CockroachDB / DB locale
+# ============================================================
+*.sql.bak
+cockroach-data/
+*.db
+*.sqlite3
+
+# ============================================================
+# IDE / Éditeurs
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ============================================================
+# Logs & fichiers temporaires
+# ============================================================
+*.log
+logs/
+tmp/
+.cache/
+
+# ============================================================
+# Jupyter / notebooks (si utilisés pour tests ML)
+# ============================================================
+.ipynb_checkpoints/
