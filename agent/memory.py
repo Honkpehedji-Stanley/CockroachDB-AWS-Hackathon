@@ -76,36 +76,56 @@ def save_conversation(user_id: str, role: str, content: str) -> None:
         conn.commit()
 
 
-def save_memory_embedding(user_id: str, content: str, embedding: list[float], source_type: str = "conversation") -> None:
-    """Stocke le texte ET son embedding dans la même transaction (mémoire vectorielle)."""
+def save_memory_embedding(
+    user_id: str,
+    content: str,
+    embedding: list[float],
+    source_type: str = "conversation",
+    source_id: str | None = None,
+) -> None:
+    """
+    Stocke le texte ET son embedding dans la même transaction (mémoire vectorielle).
+    `source_id` identifie le document d'origine (UUID) pour les chunks issus
+    de l'ingestion de documents (Phase 3) — permet de retrouver tous les
+    chunks d'un même document si besoin.
+    """
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO memory_embeddings (user_id, source_type, content, embedding)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO memory_embeddings (user_id, source_type, source_id, content, embedding)
+            VALUES (%s, %s, %s, %s, %s)
             """,
-            (user_id, source_type, content, embedding),
+            (user_id, source_type, source_id, content, embedding),
         )
         conn.commit()
 
 
-def search_similar_memories(user_id: str, query_embedding: list[float], top_k: int = 5) -> list[dict]:
+def search_similar_memories(
+    user_id: str,
+    query_embedding: list[float],
+    top_k: int = 5,
+    source_type: str | None = None,
+) -> list[dict]:
     """
     Recherche par similarité vectorielle (distance L2, cohérente avec
     l'index `vector_l2_ops` créé sur memory_embeddings).
+    `source_type` (optionnel) filtre sur 'conversation' ou 'document'.
     """
+    query = """
+        SELECT content, source_type, source_id, created_at,
+               embedding <-> %s::VECTOR AS distance
+        FROM memory_embeddings
+        WHERE user_id = %s
+    """
+    params: list = [query_embedding, user_id]
+    if source_type:
+        query += " AND source_type = %s"
+        params.append(source_type)
+    query += " ORDER BY distance ASC LIMIT %s"
+    params.append(top_k)
+
     with get_connection() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        cur.execute(
-            """
-            SELECT content, source_type, created_at,
-                   embedding <-> %s::VECTOR AS distance
-            FROM memory_embeddings
-            WHERE user_id = %s
-            ORDER BY distance ASC
-            LIMIT %s
-            """,
-            (query_embedding, user_id, top_k),
-        )
+        cur.execute(query, params)
         return cur.fetchall()
 
 
