@@ -86,6 +86,10 @@ def lambda_handler(event, context):
 
 
 if __name__ == "__main__":
-    # Test local, sans Lambda : python -m agent.handler
-    test_event = {"user_name": "stanley", "message": "Salut, tu te souviens de moi ?"}
-    print(lambda_handler(test_event, None))
+    # Tour 1 : donner une info
+    r1 = lambda_handler({"user_name": "stanley", "message": "Mon plat préféré est le poulet DG."}, None)
+    print("TOUR 1:", r1)
+
+    # Tour 2 : vérifier que l'agent s'en souvient
+    r2 = lambda_handler({"user_name": "stanley", "message": "Tu te souviens de mon plat préféré ?"}, None)
+    print("TOUR 2:", r2)
