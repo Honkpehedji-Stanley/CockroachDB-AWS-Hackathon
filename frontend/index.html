@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Employee — Agentic Memory</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --panel: #12181f;
+    --border: #232b36;
+    --text: #e6edf3;
+    --text-dim: #7d8998;
+    --accent: #2dd4bf;
+    --accent-dim: #12857a;
+    --user-bubble: #1c2733;
+    --agent-bubble: #12181f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  header .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.2px;
+  }
+
+  header .tagline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  #chat-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .msg {
+    max-width: 72%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    line-height: 1.5;
+    font-size: 14.5px;
+    white-space: pre-wrap;
+  }
+
+  .msg.user {
+    align-self: flex-end;
+    background: var(--user-bubble);
+    border: 1px solid var(--border);
+  }
+
+  .msg.agent {
+    align-self: flex-start;
+    background: var(--agent-bubble);
+    border: 1px solid var(--accent-dim);
+  }
+
+  .msg.pending { color: var(--text-dim); font-style: italic; }
+
+  #input-row {
+    display: flex;
+    gap: 10px;
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  #user-input {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: none;
+  }
+
+  #user-input:focus { outline: none; border-color: var(--accent-dim); }
+
+  button#send {
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+    border-radius: 8px;
+    padding: 0 20px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  button#send:hover { background: #4de3cf; }
+  button#send:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+
+  #memory-panel {
+    width: 300px;
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+
+  #memory-panel h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin: 0 0 4px;
+  }
+
+  #memory-panel .sub {
+    margin: 0 0 18px;
+    line-height: 1.5;
+  }
+
+  .mem-empty {
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .mem-record {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+
+  .mem-record .src {
+    color: var(--accent);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+  }
+
+  .config-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+
+  .config-bar input {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 11px;
+  }
+
+  .config-bar input#endpoint { flex: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="dot"></span>
+  <h1>AI Employee</h1>
+  <span class="tagline">agentic memory · CockroachDB × AWS</span>
+</header>
+
+<div class="config-bar">
+  <input id="endpoint" placeholder="URL de la Lambda Function (ex: https://xxxx.lambda-url.us-east-1.on.aws/)">
+  <input id="username" placeholder="Ton nom" value="stanley" style="width:120px">
+</div>
+
+<main>
+  <div id="chat-column">
+    <div id="messages">
+      <div class="msg agent">Salut. Je suis un agent avec une mémoire persistante dans CockroachDB — pose-moi une question, ou rappelle-moi quelque chose et je m'en souviendrai la prochaine fois.</div>
+    </div>
+    <div id="input-row">
+      <textarea id="user-input" rows="1" placeholder="Écris ton message..."></textarea>
+      <button id="send">Envoyer</button>
+    </div>
+  </div>
+
+  <aside id="memory-panel">
+    <h2>Mémoire mobilisée</h2>
+    <p class="sub">Ce panneau reste vide ici — il montrera, à terme, les souvenirs (conversations et documents) que l'agent a consultés pour répondre. Branche-le sur la réponse de ton Lambda si tu exposes ces métadonnées.</p>
+    <div id="mem-content" class="mem-empty">Aucun échange pour le moment.</div>
+  </aside>
+</main>
+
+<script>
+  const messagesEl = document.getElementById('messages');
+  const inputEl = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send');
+  const endpointEl = document.getElementById('endpoint');
+  const usernameEl = document.getElementById('username');
+
+  // Persistance locale de la config (URL + nom d'utilisateur), pratique entre sessions
+  endpointEl.value = localStorage.getItem('ai_employee_endpoint') || '';
+  usernameEl.value = localStorage.getItem('ai_employee_username') || 'stanley';
+  endpointEl.addEventListener('change', () => localStorage.setItem('ai_employee_endpoint', endpointEl.value));
+  usernameEl.addEventListener('change', () => localStorage.setItem('ai_employee_username', usernameEl.value));
+
+  function addMessage(text, role) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  async function sendMessage() {
+    const message = inputEl.value.trim();
+    const endpoint = endpointEl.value.trim();
+    if (!message) return;
+    if (!endpoint) { alert("Renseigne d'abord l'URL de ta Lambda Function ci-dessus."); return; }
+
+    addMessage(message, 'user');
+    inputEl.value = '';
+    sendBtn.disabled = true;
+    const pending = addMessage('L\'agent consulte sa mémoire...', 'agent pending');
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_name: usernameEl.value || 'anonymous', message })
+      });
+      const data = await res.json();
+      pending.remove();
+      if (data.error) {
+        addMessage(`Erreur : ${data.error}`, 'agent');
+      } else {
+        addMessage(data.reply, 'agent');
+      }
+    } catch (err) {
+      pending.remove();
+      addMessage(`Impossible de contacter l'agent : ${err.message}`, 'agent');
+    } finally {
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+</script>
+
+</body>
+</html>
