@@ -72,24 +72,35 @@ def run_agent_turn(user_id: str, user_message: str) -> str:
 
 
 def lambda_handler(event, context):
-    body = json.loads(event.get("body", "{}")) if "body" in event else event
-    user_name = body.get("user_name", "anonymous")
-    user_message = body["message"]
+    try:
+        body = json.loads(event.get("body", "{}")) if "body" in event else event
+        user_name = body.get("user_name", "anonymous")
+        user_message = body.get("message")
+        if not user_message:
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Le champ 'message' est requis."}),
+            }
 
-    user_id = memory.get_or_create_user(user_name)
-    reply = run_agent_turn(user_id, user_message)
+        user_id = memory.get_or_create_user(user_name)
+        reply = run_agent_turn(user_id, user_message)
 
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"reply": reply, "user_id": user_id}),
-    }
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"reply": reply, "user_id": user_id}),
+        }
+    except Exception as exc:  # noqa: BLE001 — toujours répondre proprement au client
+        print(f"[ERROR] {exc}")  # capté par CloudWatch Logs
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": "Une erreur interne est survenue. Réessaie dans un instant."}),
+        }
 
 
 if __name__ == "__main__":
-    # Tour 1 : donner une info
-    r1 = lambda_handler({"user_name": "stanley", "message": "Mon plat préféré est le poulet DG."}, None)
-    print("TOUR 1:", r1)
-
-    # Tour 2 : vérifier que l'agent s'en souvient
-    r2 = lambda_handler({"user_name": "stanley", "message": "Tu te souviens de mon plat préféré ?"}, None)
-    print("TOUR 2:", r2)
+    # Test local, sans Lambda : python -m agent.handler
+    test_event = {"user_name": "stanley", "message": "Salut, tu te souviens de moi ?"}
+    print(lambda_handler(test_event, None))
