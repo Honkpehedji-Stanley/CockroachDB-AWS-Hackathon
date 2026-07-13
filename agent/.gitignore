@@ -1,0 +1,18 @@
+# Secrets — ne jamais committer
+.env
+env.json
+*.env
+
+# Fichiers générés / logs de test locaux
+response.json
+access-log-settings.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environnements virtuels
+venv/
+.venv/
