@@ -72,6 +72,20 @@ def run_agent_turn(user_id: str, user_message: str) -> str:
 
 
 def lambda_handler(event, context):
+    http_method = event.get("requestContext", {}).get("http", {}).get("method") or event.get("httpMethod")
+    if http_method == "OPTIONS":
+        # Préflight CORS : API Gateway le transmet à la Lambda (route $default),
+        # il faut répondre 200 sans passer par la validation métier ci-dessous.
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "OPTIONS,POST",
+                "Access-Control-Allow-Headers": "content-type",
+            },
+            "body": "",
+        }
+
     try:
         body = json.loads(event.get("body", "{}")) if "body" in event else event
         user_name = body.get("user_name", "anonymous")
