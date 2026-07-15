@@ -11,7 +11,7 @@ Ce projet utilise **CockroachDB** comme cerveau à long terme d'un agent IA dép
 ## 🏗️ Architecture
 
 ```
-Utilisateur → Frontend (chat) → AWS Lambda Function URL → Lambda (orchestrateur agent)
+Utilisateur → Frontend (chat) → API Gateway (HTTP API) → AWS Lambda (orchestrateur agent, image Docker)
                                                                   │
                                                                   ├──► Amazon Bedrock (Claude — raisonnement + tool use)
                                                                   ├──► Amazon Bedrock (Titan Embeddings G1 — 1536 dim)
@@ -36,7 +36,7 @@ Un diagramme visuel détaillé sera ajouté dans `/docs`.
 | Recherche vectorielle / RAG | CockroachDB `VECTOR(1536)` + index distribué (`vector_l2_ops`) |
 | Accès agent → base de données (autonome) | **CockroachDB Cloud Managed MCP Server** (tool use côté Claude) |
 | Automatisation infra | **ccloud CLI** |
-| Orchestration de l'agent | **AWS Lambda** (image Docker, Function URL) |
+| Orchestration de l'agent | **AWS Lambda** (image Docker) exposée via **API Gateway** (HTTP API) |
 | Modèle de langage | **Amazon Bedrock** — Claude Sonnet 4.5 (via inference profile) |
 | Embeddings | **Amazon Titan Embeddings G1 - Text** (`amazon.titan-embed-text-v1`, 1536 dim) |
 | Stockage de documents | **Amazon S3** |
@@ -50,7 +50,8 @@ Outils CockroachDB utilisés (minimum 2 requis par le hackathon) :
 
 Service AWS utilisé (minimum 1 requis) :
 - ✅ **Amazon Bedrock** — Claude (raisonnement + tool use) et Titan (embeddings)
-- ✅ **AWS Lambda** — orchestration de l'agent, déployée en production (image Docker + Function URL)
+- ✅ **AWS Lambda** — orchestration de l'agent, déployée en production (image Docker)
+- ✅ **Amazon API Gateway** (HTTP API) — endpoint public devant la Lambda
 - ✅ **Amazon S3** — stockage brut des documents avant ingestion
 
 ## 📁 Structure du repo
@@ -91,26 +92,18 @@ Lambda handler fonctionnel (testé en local puis déployé), intégration Bedroc
 ### ✅ Phase 3 — RAG + mémoire vectorielle
 Ingestion de documents PDF et texte validée. Recherche vectorielle testée avec **discrimination multi-documents** (plusieurs documents sans rapport en mémoire, chaque question retrouve le bon document en tête du classement). Pipeline S3 → extraction → chunking → embedding → CockroachDB validé de bout en bout.
 
-### 🔄 Phase 4 — Déploiement production (en cours)
+### ✅ Phase 4 — Déploiement production
 - Image Docker buildée et poussée sur **Amazon ECR**
-- Fonction **AWS Lambda** créée (image container, 512 MB, timeout 30s)
-- **Function URL** publique créée avec CORS activé
-- Frontend de chat fonctionnel (`frontend/index.html`), prêt à être branché sur l'URL Lambda
-- ⚠️ **Point de blocage résolu en cours de route** : AWS applique par défaut un blocage d'accès public sur les Function URLs (`PublicAccessBlockConfig`, actif par défaut depuis fin 2024), indépendant de la resource policy. Correction :
-  ```bash
-  aws lambda put-public-access-block-config \
-    --resource-arn <ARN_DE_LA_FONCTION> \
-    --public-access-block-config BlockPublicPolicy=false,RestrictPublicResource=false
-  ```
-  ⚠️ Cette commande nécessite une version récente d'AWS CLI (≥ 2.19 environ). Si elle n'est pas reconnue :
-  ```bash
-  pip install --upgrade awscli
-  # ou, pour AWS CLI v2 :
-  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-  unzip awscliv2.zip && sudo ./aws/install --update
-  ```
-  Alternative sans CLI : Console AWS → Lambda → fonction → Configuration → Permissions → réglages d'accès public.
-- 🔜 Test bout en bout curl + frontend une fois le blocage levé
+- Fonction **AWS Lambda** créée (image container, 512 MB, timeout 30s), rôle IAM dédié (`AWSLambdaBasicExecutionRole`, `AmazonBedrockFullAccess`, `AmazonS3FullAccess`)
+- Endpoint public : **API Gateway HTTP API** (`https://cuii8r8ija.execute-api.us-east-1.amazonaws.com`), intégration proxy avec la Lambda, CORS activé
+- Frontend de chat fonctionnel (`frontend/index.html`), branché sur l'URL API Gateway
+- Test bout en bout réussi : l'agent répond, se souvient d'une conversation antérieure, tool-use MCP observé en autonomie
+
+⚠️ **Pourquoi API Gateway et pas une Lambda Function URL** : la Function URL retournait systématiquement `403 Forbidden` malgré une resource policy correcte (`lambda:InvokeFunctionUrl`, `AuthType=NONE`) — cause probablement liée à une restriction spécifique au compte AWS utilisé, non résolue avec certitude. API Gateway HTTP API fonctionne sans ce problème et est l'endpoint à utiliser.
+
+⚠️ **Note pour qui relance `deploy.sh`** : le script provisionne encore une Function URL (legacy, étape 6) — l'API Gateway actuelle a été créée à la main via AWS CLI et n'est pas encore automatisée dans le script. Deux points d'attention si tu la recrées :
+- `SourceArn` de la permission Lambda : `arn:aws:execute-api:{region}:{account}:{api-id}/*` (un seul wildcard — le format à 3 wildcards habituel en REST API v1 échoue silencieusement en HTTP API v2)
+- Le certificat CA CockroachDB (`agent/cc-ca.crt`) doit être copié dans l'image Docker et référencé via `sslrootcert=/var/task/cc-ca.crt` dans `DATABASE_URL` — l'image `public.ecr.aws/lambda/python:3.12` n'a pas de magasin de certificats système complet, donc `sslrootcert=system` échoue
 
 ## 🔧 Installation et lancement
 
@@ -161,15 +154,15 @@ python -m dotenv run python test_discrimination.py [chemin/vers/un.pdf optionnel
 chmod +x deploy.sh
 ./deploy.sh
 ```
-Le script affiche l'URL publique de l'agent à la fin. Teste-la avec :
+Le script build et pousse l'image, puis crée/met à jour la fonction Lambda (il provisionne aussi une Function URL, non utilisée en production — voir note Phase 4 ci-dessus). Il faut ensuite exposer la Lambda via une **API Gateway HTTP API** (intégration proxy, route `$default`, CORS activé) — c'est cette URL-là qu'il faut utiliser en pratique. Teste-la avec :
 ```bash
-curl -X POST <URL_AFFICHÉE> \
+curl -X POST <URL_API_GATEWAY> \
   -H 'Content-Type: application/json' \
   -d '{"user_name":"stanley","message":"Salut !"}'
 ```
 
 ### 7. Lancer le frontend
-Ouvre simplement `frontend/index.html` dans un navigateur, colle l'URL Lambda dans le champ prévu, et discute avec l'agent.
+Ouvre simplement `frontend/index.html` dans un navigateur, colle l'URL API Gateway dans le champ prévu, et discute avec l'agent.
 
 ## 🎥 Démo
 
