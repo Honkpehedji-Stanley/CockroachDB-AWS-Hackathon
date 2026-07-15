@@ -25,7 +25,55 @@
     --user-bubble: #1a2430;
     --agent-bubble: #12181f;
     --danger: #f87171;
+    --danger-bg: #2a1616;
+    --code-bg: rgba(255,255,255,0.06);
     --radius: 14px;
+  }
+
+  :root[data-theme="light"] {
+    --bg: #f4f6f8;
+    --bg-glow: radial-gradient(1200px 600px at 15% -10%, rgba(13, 148, 136, 0.08), transparent 60%),
+               radial-gradient(900px 500px at 100% 10%, rgba(94, 129, 244, 0.06), transparent 55%);
+    --panel: #ffffff;
+    --panel-raised: #eef1f4;
+    --border: #dde2e8;
+    --border-soft: #e6eaee;
+    --text: #1a2027;
+    --text-dim: #5b6675;
+    --text-faint: #94a0af;
+    --accent: #0d9488;
+    --accent-bright: #0f766e;
+    --accent-dim: #0d9488;
+    --accent-glow: rgba(13, 148, 136, 0.25);
+    --user-bubble: #eaf2f1;
+    --agent-bubble: #ffffff;
+    --danger: #dc2626;
+    --danger-bg: #fdeaea;
+    --code-bg: rgba(0,0,0,0.05);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f4f6f8;
+      --bg-glow: radial-gradient(1200px 600px at 15% -10%, rgba(13, 148, 136, 0.08), transparent 60%),
+                 radial-gradient(900px 500px at 100% 10%, rgba(94, 129, 244, 0.06), transparent 55%);
+      --panel: #ffffff;
+      --panel-raised: #eef1f4;
+      --border: #dde2e8;
+      --border-soft: #e6eaee;
+      --text: #1a2027;
+      --text-dim: #5b6675;
+      --text-faint: #94a0af;
+      --accent: #0d9488;
+      --accent-bright: #0f766e;
+      --accent-dim: #0d9488;
+      --accent-glow: rgba(13, 148, 136, 0.25);
+      --user-bubble: #eaf2f1;
+      --agent-bubble: #ffffff;
+      --danger: #dc2626;
+      --danger-bg: #fdeaea;
+      --code-bg: rgba(0,0,0,0.05);
+    }
   }
 
   * { box-sizing: border-box; }
@@ -46,6 +94,37 @@
     display: flex;
     flex-direction: column;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  header button#theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 8px;
+    padding: 6px 9px;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+  header button#theme-toggle:hover { border-color: var(--accent-dim); color: var(--accent-bright); }
+
+  .file-protocol-warning {
+    display: none;
+    padding: 10px 24px;
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .file-protocol-warning.show { display: block; }
+  .file-protocol-warning code {
+    background: rgba(0,0,0,0.15);
+    padding: 1px 5px;
+    border-radius: 4px;
   }
 
   header {
@@ -208,8 +287,32 @@
 
   .msg-row.agent .msg.error {
     border-color: var(--danger);
-    color: #ffd5d5;
+    background: var(--danger-bg);
+    color: var(--danger);
   }
+
+  .msg code {
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+  }
+
+  .msg pre {
+    background: var(--code-bg);
+    padding: 10px 12px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 6px 0;
+  }
+
+  .msg pre code { background: none; padding: 0; }
+
+  .msg strong { font-weight: 700; }
+  .msg em { font-style: italic; }
+  .msg a { color: var(--accent-bright); text-decoration: underline; }
+  .msg ul, .msg ol { margin: 4px 0; padding-left: 20px; }
 
   .msg-time {
     font-family: 'JetBrains Mono', monospace;
@@ -404,9 +507,14 @@
     <span class="tagline">agentic memory · CockroachDB × AWS</span>
   </div>
   <span class="status-pill" id="status-pill">non configuré</span>
+  <button id="theme-toggle" title="Changer de thème">◐</button>
   <button id="toggle-memory" title="Panneau mémoire">Mémoire</button>
   <button id="clear-chat" title="Effacer la conversation">Effacer</button>
 </header>
+
+<div class="file-protocol-warning" id="file-warning">
+  ⚠ Cette page est ouverte en <code>file://</code> — l'API refusera les requêtes (CORS bloque l'origine "null"). Sers-la via un serveur local, ex : <code>cd frontend && python3 -m http.server 8080</code>, puis ouvre <code>http://localhost:8080</code>.
+</div>
 
 <div class="config-bar">
   <input id="endpoint" placeholder="URL de l'API (ex: https://xxxx.execute-api.us-east-1.amazonaws.com)">
@@ -440,9 +548,53 @@
   const clearBtn = document.getElementById('clear-chat');
   const toggleMemoryBtn = document.getElementById('toggle-memory');
   const memoryPanel = document.getElementById('memory-panel');
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  const fileWarningEl = document.getElementById('file-warning');
 
   const DEFAULT_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
   const WELCOME = "Salut. Je suis un agent avec une mémoire persistante dans CockroachDB — pose-moi une question, ou rappelle-moi quelque chose et je m'en souviendrai la prochaine fois.";
+
+  // Avertit si la page est ouverte en double-clic (file://) : l'API rejette
+  // silencieusement ces requêtes (Origin: null n'obtient aucun header CORS
+  // depuis API Gateway), ce qui produit un "Failed to fetch" déroutant.
+  if (location.protocol === 'file:') fileWarningEl.classList.add('show');
+
+  // --- Thème clair / sombre ---
+  function applyTheme(theme) {
+    if (theme) document.documentElement.setAttribute('data-theme', theme);
+    else document.documentElement.removeAttribute('data-theme');
+    const isLight = theme === 'light' || (!theme && window.matchMedia('(prefers-color-scheme: light)').matches);
+    themeToggleBtn.textContent = isLight ? '◑' : '◐';
+  }
+  applyTheme(localStorage.getItem('ai_employee_theme'));
+  themeToggleBtn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme')
+      || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    const next = current === 'light' ? 'dark' : 'light';
+    localStorage.setItem('ai_employee_theme', next);
+    applyTheme(next);
+  });
+
+  // --- Rendu markdown minimal et sûr (échappe le HTML avant toute transformation) ---
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function renderMarkdown(text) {
+    const blocks = text.split(/```([\s\S]*?)```/g);
+    return blocks.map((chunk, i) => {
+      if (i % 2 === 1) return `<pre><code>${escapeHtml(chunk.trim())}</code></pre>`;
+      let html = escapeHtml(chunk);
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+      html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      html = html.replace(/^- (.+)$/gm, '<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
+      return html.replace(/\n/g, '<br>');
+    }).join('');
+  }
 
   // Persistance locale de la config (URL + nom d'utilisateur), pratique entre sessions
   endpointEl.value = localStorage.getItem('ai_employee_endpoint') || DEFAULT_ENDPOINT;
@@ -475,7 +627,11 @@
 
     const bubble = document.createElement('div');
     bubble.className = `msg${isError ? ' error' : ''}`;
-    bubble.textContent = text;
+    if (role === 'agent' && !isError) {
+      bubble.innerHTML = renderMarkdown(text);
+    } else {
+      bubble.textContent = text;
+    }
 
     const time = document.createElement('div');
     time.className = 'msg-time';
