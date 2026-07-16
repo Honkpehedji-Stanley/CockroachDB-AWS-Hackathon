@@ -412,6 +412,41 @@
   button#send:active:not(:disabled) { transform: scale(0.97); }
   button#send:disabled { background: var(--border); color: var(--text-faint); cursor: not-allowed; }
 
+  button#upload-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  button#upload-btn:hover:not(:disabled) { border-color: var(--accent-dim); color: var(--accent-bright); }
+  button#upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  button#upload-btn.uploading svg { animation: spin 1s linear infinite; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .msg-row.system {
+    align-self: center;
+    max-width: 90%;
+  }
+  .msg-row.system .msg {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    text-align: center;
+    padding: 8px 14px;
+  }
+  .msg-row.system .msg.error { border-color: var(--danger); color: var(--danger); }
+
   #memory-panel {
     width: 300px;
     border-right: 1px solid var(--border-soft);
@@ -630,13 +665,17 @@
 <main>
   <aside id="memory-panel">
     <h2>Mémoire mobilisée</h2>
-    <p class="sub">Ce panneau montrera, à terme, les souvenirs (conversations et documents) que l'agent a consultés pour répondre. Branche-le sur la réponse de ton Lambda si tu exposes ces métadonnées.</p>
+    <p class="sub">Souvenirs (conversations passées et documents indexés) que la recherche vectorielle CockroachDB a retrouvés pour construire la dernière réponse, du plus au moins proche.</p>
     <div id="mem-content" class="mem-empty">Aucun échange pour le moment.</div>
   </aside>
 
   <div id="chat-column">
     <div id="messages"></div>
     <div id="input-row">
+      <input type="file" id="file-input" accept=".pdf,.txt,.md" hidden>
+      <button id="upload-btn" type="button" title="Envoyer un document (.pdf, .txt, .md) à l'agent">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+      </button>
       <textarea id="user-input" rows="1" placeholder="Écris ton message... (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)"></textarea>
       <button id="send">Envoyer</button>
     </div>
@@ -670,6 +709,9 @@
   const clearModalOverlay = document.getElementById('clear-modal-overlay');
   const clearModalCancel = document.getElementById('clear-modal-cancel');
   const clearModalConfirm = document.getElementById('clear-modal-confirm');
+  const fileInputEl = document.getElementById('file-input');
+  const uploadBtn = document.getElementById('upload-btn');
+  const memContentEl = document.getElementById('mem-content');
 
   // URL fixe : ce frontend ne sert qu'un seul déploiement, pas besoin de champ éditable.
   const API_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
@@ -714,6 +756,23 @@
       html = html.replace(/^- (.+)$/gm, '<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
       return html.replace(/\n/g, '<br>');
     }).join('');
+  }
+
+  // --- Panneau "Mémoire mobilisée" : affiche les souvenirs que la recherche
+  // vectorielle a retrouvés pour la dernière réponse (renvoyés par la Lambda) ---
+  function renderMemoryPanel(memoriesUsed) {
+    if (!memoriesUsed || memoriesUsed.length === 0) {
+      memContentEl.className = 'mem-empty';
+      memContentEl.textContent = "Aucun souvenir pertinent trouvé pour cette réponse.";
+      return;
+    }
+    memContentEl.className = '';
+    memContentEl.innerHTML = memoriesUsed.map((m) => `
+      <div class="mem-record">
+        <div class="src">${escapeHtml(m.source_type || 'conversation')} · distance ${m.distance.toFixed(3)}</div>
+        <div>${escapeHtml(m.content)}</div>
+      </div>
+    `).join('');
   }
 
   // Persistance locale du nom d'utilisateur, pratique entre sessions
@@ -761,6 +820,18 @@
     return { row, bubble };
   }
 
+  function addSystemMessage(text, isError = false) {
+    const row = document.createElement('div');
+    row.className = 'msg-row system';
+    const bubble = document.createElement('div');
+    bubble.className = `msg${isError ? ' error' : ''}`;
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+  }
+
   function addTypingIndicator() {
     const row = document.createElement('div');
     row.className = 'msg-row agent';
@@ -779,6 +850,7 @@
   function resetChat() {
     messagesEl.innerHTML = '';
     addMessage(WELCOME, 'agent');
+    renderMemoryPanel([]);
   }
 
   async function sendMessage() {
@@ -803,6 +875,7 @@
         addMessage(`Erreur : ${data.error}`, 'agent', true);
       } else {
         addMessage(data.reply, 'agent');
+        renderMemoryPanel(data.memories_used);
       }
     } catch (err) {
       pendingRow.remove();
@@ -812,6 +885,63 @@
       inputEl.focus();
     }
   }
+
+  // --- Upload de documents : lit le fichier en base64 et le poste à la même
+  // Lambda (action: "upload"), qui le stocke sur S3 puis l'indexe (chunks +
+  // embeddings Titan) via le pipeline ingest.py existant. ---
+  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // doit rester cohérent avec agent/handler.py
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function uploadFile(file) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      addSystemMessage(`"${file.name}" dépasse la taille max (${(MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0)} Mo).`, true);
+      return;
+    }
+    uploadBtn.disabled = true;
+    uploadBtn.classList.add('uploading');
+    const statusBubble = addSystemMessage(`Envoi de "${file.name}"...`);
+
+    try {
+      const file_base64 = await readFileAsBase64(file);
+      const res = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upload',
+          user_name: usernameEl.value || 'anonymous',
+          filename: file.name,
+          file_base64
+        })
+      });
+      const data = await res.json();
+      if (data.error) {
+        statusBubble.textContent = `Échec de l'envoi de "${file.name}" : ${data.error}`;
+        statusBubble.classList.add('error');
+      } else {
+        statusBubble.textContent = `📄 "${data.filename}" indexé — ${data.chunks_stored} passage(s) ajouté(s) à la mémoire vectorielle.`;
+      }
+    } catch (err) {
+      statusBubble.textContent = `Échec de l'envoi de "${file.name}" : ${err.message}`;
+      statusBubble.classList.add('error');
+    } finally {
+      uploadBtn.disabled = false;
+      uploadBtn.classList.remove('uploading');
+      fileInputEl.value = '';
+    }
+  }
+
+  uploadBtn.addEventListener('click', () => fileInputEl.click());
+  fileInputEl.addEventListener('change', () => {
+    if (fileInputEl.files[0]) uploadFile(fileInputEl.files[0]);
+  });
 
   sendBtn.addEventListener('click', sendMessage);
   inputEl.addEventListener('keydown', (e) => {

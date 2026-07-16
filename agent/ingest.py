@@ -56,6 +56,12 @@ def upload_document_to_s3(local_path: str, key: str | None = None) -> str:
     return key
 
 
+def upload_bytes_to_s3(raw_bytes: bytes, key: str) -> str:
+    """Upload des octets déjà en mémoire vers S3 — utilisé par la Lambda (pas de fichier local)."""
+    _s3.put_object(Bucket=S3_BUCKET, Key=key, Body=raw_bytes)
+    return key
+
+
 def ingest_document_from_s3(key: str, user_id: str) -> dict:
     """Télécharge un document depuis S3 et l'indexe en mémoire vectorielle."""
     obj = _s3.get_object(Bucket=S3_BUCKET, Key=key)

@@ -90,14 +90,14 @@ if aws lambda get-function --function-name "${FUNCTION_NAME}" --region "${AWS_RE
     --image-uri "${ECR_URI}:latest" --region "${AWS_REGION}"
   aws lambda wait function-updated --function-name "${FUNCTION_NAME}" --region "${AWS_REGION}"
   aws lambda update-function-configuration --function-name "${FUNCTION_NAME}" \
-    --environment file://env.json --timeout 30 --memory-size 512 --region "${AWS_REGION}"
+    --environment file://env.json --timeout 60 --memory-size 512 --region "${AWS_REGION}"
 else
   echo "==> Création de la fonction"
   aws lambda create-function --function-name "${FUNCTION_NAME}" \
     --package-type Image \
     --code "ImageUri=${ECR_URI}:latest" \
     --role "${ROLE_ARN}" \
-    --timeout 30 --memory-size 512 \
+    --timeout 60 --memory-size 512 \
     --environment file://env.json \
     --region "${AWS_REGION}"
   aws lambda wait function-active --function-name "${FUNCTION_NAME}" --region "${AWS_REGION}"
