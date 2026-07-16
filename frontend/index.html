@@ -475,12 +475,20 @@
 
   .config-bar {
     display: flex;
+    align-items: center;
     gap: 8px;
     padding: 10px 24px;
     border-bottom: 1px solid var(--border-soft);
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     flex-shrink: 0;
+  }
+
+  .config-bar label {
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-size: 10px;
   }
 
   .config-bar input {
@@ -492,10 +500,10 @@
     font-family: inherit;
     font-size: 11px;
     transition: border-color 0.15s;
+    width: 160px;
   }
 
   .config-bar input:focus { outline: none; border-color: var(--accent-dim); }
-  .config-bar input#endpoint { flex: 1; }
 
   @media (max-width: 860px) {
     #memory-panel { display: none; }
@@ -615,8 +623,8 @@
 </div>
 
 <div class="config-bar">
-  <input id="endpoint" placeholder="URL de l'API (ex: https://xxxx.execute-api.us-east-1.amazonaws.com)">
-  <input id="username" placeholder="Ton nom" value="stanley" style="width:120px">
+  <label for="username">Ton nom</label>
+  <input id="username" placeholder="Ton nom" value="stanley">
 </div>
 
 <main>
@@ -650,7 +658,6 @@
   const messagesEl = document.getElementById('messages');
   const inputEl = document.getElementById('user-input');
   const sendBtn = document.getElementById('send');
-  const endpointEl = document.getElementById('endpoint');
   const usernameEl = document.getElementById('username');
   const statusDot = document.getElementById('status-dot');
   const statusPill = document.getElementById('status-pill');
@@ -664,7 +671,8 @@
   const clearModalCancel = document.getElementById('clear-modal-cancel');
   const clearModalConfirm = document.getElementById('clear-modal-confirm');
 
-  const DEFAULT_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
+  // URL fixe : ce frontend ne sert qu'un seul déploiement, pas besoin de champ éditable.
+  const API_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
   const WELCOME = "Salut. Je suis un agent avec une mémoire persistante dans CockroachDB — pose-moi une question, ou rappelle-moi quelque chose et je m'en souviendrai la prochaine fois.";
 
   // Avertit si la page est ouverte en double-clic (file://) : l'API rejette
@@ -708,19 +716,14 @@
     }).join('');
   }
 
-  // Persistance locale de la config (URL + nom d'utilisateur), pratique entre sessions
-  endpointEl.value = localStorage.getItem('ai_employee_endpoint') || DEFAULT_ENDPOINT;
+  // Persistance locale du nom d'utilisateur, pratique entre sessions
   usernameEl.value = localStorage.getItem('ai_employee_username') || 'stanley';
-  endpointEl.addEventListener('change', () => { localStorage.setItem('ai_employee_endpoint', endpointEl.value); updateStatus(); });
   usernameEl.addEventListener('change', () => localStorage.setItem('ai_employee_username', usernameEl.value));
 
-  function updateStatus() {
-    const ready = !!endpointEl.value.trim();
-    statusDot.classList.toggle('online', ready);
-    statusPill.classList.toggle('ready', ready);
-    statusPill.textContent = ready ? 'prêt' : 'non configuré';
-  }
-  updateStatus();
+  // L'endpoint est fixe : toujours "prêt", pas de configuration requise.
+  statusDot.classList.add('online');
+  statusPill.classList.add('ready');
+  statusPill.textContent = 'prêt';
 
   function formatTime() {
     return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -780,9 +783,7 @@
 
   async function sendMessage() {
     const message = inputEl.value.trim();
-    const endpoint = endpointEl.value.trim();
     if (!message) return;
-    if (!endpoint) { alert("Renseigne d'abord l'URL de ton API ci-dessus."); return; }
 
     addMessage(message, 'user');
     inputEl.value = '';
@@ -791,7 +792,7 @@
     const pendingRow = addTypingIndicator();
 
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_name: usernameEl.value || 'anonymous', message })
