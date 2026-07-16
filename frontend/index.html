@@ -97,18 +97,31 @@
     transition: background-color 0.2s, color 0.2s;
   }
 
-  header button#theme-toggle {
-    background: transparent;
+  .theme-switch {
+    display: flex;
     border: 1px solid var(--border);
-    color: var(--text-dim);
     border-radius: 8px;
-    padding: 6px 9px;
-    font-size: 13px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .theme-switch button {
+    background: transparent;
+    border: none;
+    color: var(--text-faint);
+    padding: 6px 10px;
+    font-size: 12.5px;
     cursor: pointer;
     line-height: 1;
     transition: all 0.15s;
   }
-  header button#theme-toggle:hover { border-color: var(--accent-dim); color: var(--accent-bright); }
+
+  .theme-switch button + button { border-left: 1px solid var(--border); }
+  .theme-switch button:hover { color: var(--text-dim); }
+  .theme-switch button.active {
+    background: var(--accent-dim);
+    color: #06201d;
+  }
 
   .file-protocol-warning {
     display: none;
@@ -400,7 +413,7 @@
 
   #memory-panel {
     width: 300px;
-    border-left: 1px solid var(--border-soft);
+    border-right: 1px solid var(--border-soft);
     padding: 22px 20px;
     overflow-y: auto;
     font-family: 'JetBrains Mono', monospace;
@@ -496,6 +509,83 @@
     header button#toggle-memory { display: inline-block; }
     .msg-row { max-width: 90%; }
   }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+
+  .modal-overlay.show {
+    display: flex;
+    animation: fade-in 0.15s ease-out;
+  }
+
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    width: min(360px, 90vw);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    animation: modal-rise 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+
+  @keyframes modal-rise {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .modal p {
+    margin: 0 0 20px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-dim);
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .modal-actions button {
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+
+  .modal-actions .btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+  }
+  .modal-actions .btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .modal-actions .btn-danger {
+    background: var(--danger);
+    color: #2a0d0d;
+    border-color: var(--danger);
+  }
+  .modal-actions .btn-danger:hover { filter: brightness(1.1); }
 </style>
 </head>
 <body>
@@ -507,7 +597,10 @@
     <span class="tagline">agentic memory · CockroachDB × AWS</span>
   </div>
   <span class="status-pill" id="status-pill">non configuré</span>
-  <button id="theme-toggle" title="Changer de thème">◐</button>
+  <div class="theme-switch" role="group" aria-label="Choix du thème">
+    <button id="theme-light" data-theme-choice="light" title="Mode clair">☀️</button>
+    <button id="theme-dark" data-theme-choice="dark" title="Mode sombre">🌙</button>
+  </div>
   <button id="toggle-memory" title="Panneau mémoire">Mémoire</button>
   <button id="clear-chat" title="Effacer la conversation">Effacer</button>
 </header>
@@ -522,6 +615,12 @@
 </div>
 
 <main>
+  <aside id="memory-panel">
+    <h2>Mémoire mobilisée</h2>
+    <p class="sub">Ce panneau montrera, à terme, les souvenirs (conversations et documents) que l'agent a consultés pour répondre. Branche-le sur la réponse de ton Lambda si tu exposes ces métadonnées.</p>
+    <div id="mem-content" class="mem-empty">Aucun échange pour le moment.</div>
+  </aside>
+
   <div id="chat-column">
     <div id="messages"></div>
     <div id="input-row">
@@ -529,13 +628,18 @@
       <button id="send">Envoyer</button>
     </div>
   </div>
-
-  <aside id="memory-panel">
-    <h2>Mémoire mobilisée</h2>
-    <p class="sub">Ce panneau montrera, à terme, les souvenirs (conversations et documents) que l'agent a consultés pour répondre. Branche-le sur la réponse de ton Lambda si tu exposes ces métadonnées.</p>
-    <div id="mem-content" class="mem-empty">Aucun échange pour le moment.</div>
-  </aside>
 </main>
+
+<div class="modal-overlay" id="clear-modal-overlay">
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="clear-modal-title">
+    <h3 id="clear-modal-title">Effacer la conversation ?</h3>
+    <p>Ça vide uniquement l'affichage de ce navigateur — rien n'est supprimé côté serveur, l'agent garde toute sa mémoire.</p>
+    <div class="modal-actions">
+      <button id="clear-modal-cancel" class="btn-ghost">Annuler</button>
+      <button id="clear-modal-confirm" class="btn-danger">Effacer</button>
+    </div>
+  </div>
+</div>
 
 <script>
   const messagesEl = document.getElementById('messages');
@@ -548,8 +652,12 @@
   const clearBtn = document.getElementById('clear-chat');
   const toggleMemoryBtn = document.getElementById('toggle-memory');
   const memoryPanel = document.getElementById('memory-panel');
-  const themeToggleBtn = document.getElementById('theme-toggle');
+  const themeLightBtn = document.getElementById('theme-light');
+  const themeDarkBtn = document.getElementById('theme-dark');
   const fileWarningEl = document.getElementById('file-warning');
+  const clearModalOverlay = document.getElementById('clear-modal-overlay');
+  const clearModalCancel = document.getElementById('clear-modal-cancel');
+  const clearModalConfirm = document.getElementById('clear-modal-confirm');
 
   const DEFAULT_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
   const WELCOME = "Salut. Je suis un agent avec une mémoire persistante dans CockroachDB — pose-moi une question, ou rappelle-moi quelque chose et je m'en souviendrai la prochaine fois.";
@@ -559,21 +667,20 @@
   // depuis API Gateway), ce qui produit un "Failed to fetch" déroutant.
   if (location.protocol === 'file:') fileWarningEl.classList.add('show');
 
-  // --- Thème clair / sombre ---
+  // --- Thème clair / sombre : deux boutons toujours visibles, celui actif est
+  // surligné, donc l'état courant est explicite (pas une icône ambiguë à deviner) ---
   function applyTheme(theme) {
     if (theme) document.documentElement.setAttribute('data-theme', theme);
     else document.documentElement.removeAttribute('data-theme');
     const isLight = theme === 'light' || (!theme && window.matchMedia('(prefers-color-scheme: light)').matches);
-    themeToggleBtn.textContent = isLight ? '◑' : '◐';
+    themeLightBtn.classList.toggle('active', isLight);
+    themeDarkBtn.classList.toggle('active', !isLight);
+    themeLightBtn.setAttribute('aria-pressed', String(isLight));
+    themeDarkBtn.setAttribute('aria-pressed', String(!isLight));
   }
   applyTheme(localStorage.getItem('ai_employee_theme'));
-  themeToggleBtn.addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme')
-      || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-    const next = current === 'light' ? 'dark' : 'light';
-    localStorage.setItem('ai_employee_theme', next);
-    applyTheme(next);
-  });
+  themeLightBtn.addEventListener('click', () => { localStorage.setItem('ai_employee_theme', 'light'); applyTheme('light'); });
+  themeDarkBtn.addEventListener('click', () => { localStorage.setItem('ai_employee_theme', 'dark'); applyTheme('dark'); });
 
   // --- Rendu markdown minimal et sûr (échappe le HTML avant toute transformation) ---
   function escapeHtml(str) {
@@ -714,8 +821,17 @@
     inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
   });
 
-  clearBtn.addEventListener('click', () => {
-    if (confirm('Effacer la conversation affichée ? (ne supprime rien côté serveur)')) resetChat();
+  clearBtn.addEventListener('click', () => clearModalOverlay.classList.add('show'));
+  clearModalCancel.addEventListener('click', () => clearModalOverlay.classList.remove('show'));
+  clearModalConfirm.addEventListener('click', () => {
+    clearModalOverlay.classList.remove('show');
+    resetChat();
+  });
+  clearModalOverlay.addEventListener('click', (e) => {
+    if (e.target === clearModalOverlay) clearModalOverlay.classList.remove('show');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && clearModalOverlay.classList.contains('show')) clearModalOverlay.classList.remove('show');
   });
 
   toggleMemoryBtn.addEventListener('click', () => memoryPanel.classList.toggle('open'));
