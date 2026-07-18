@@ -12,6 +12,7 @@ un souvenir, ou pour supprimer un document entier plus tard.
 import io
 import os
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 import boto3
 from pypdf import PdfReader
@@ -24,6 +25,12 @@ S3_BUCKET = os.environ.get("DOCUMENTS_BUCKET")
 
 CHUNK_SIZE = 1000     # caractères par chunk
 CHUNK_OVERLAP = 200   # chevauchement entre chunks (évite de couper une idée en deux)
+
+# Garde-fous pour rester sous les 30s d'intégration API Gateway (plafond AWS
+# fixe pour les intégrations Lambda proxy en HTTP API, non modifiable) quand
+# l'ingestion est déclenchée depuis une requête HTTP synchrone (upload chat).
+MAX_CHUNKS_SYNC = 40
+EMBEDDING_WORKERS = 8
 
 _s3 = boto3.client("s3", region_name=AWS_REGION)
 
@@ -78,24 +85,34 @@ def ingest_local_document(local_path: str, user_id: str) -> dict:
     return _ingest_text(text, user_id, filename=os.path.basename(local_path))
 
 
+def _embed_and_store_chunk(chunk: str, user_id: str, document_id: str) -> None:
+    embedding = bedrock_client.generate_embedding(chunk)
+    memory.save_memory_embedding(
+        user_id=user_id,
+        content=chunk,
+        embedding=embedding,
+        source_type="document",
+        source_id=document_id,
+    )
+
+
 def _ingest_text(text: str, user_id: str, filename: str) -> dict:
     document_id = str(uuid.uuid4())
     chunks = _chunk_text(text)
+    truncated = len(chunks) > MAX_CHUNKS_SYNC
+    chunks = chunks[:MAX_CHUNKS_SYNC]
 
-    for chunk in chunks:
-        embedding = bedrock_client.generate_embedding(chunk)
-        memory.save_memory_embedding(
-            user_id=user_id,
-            content=chunk,
-            embedding=embedding,
-            source_type="document",
-            source_id=document_id,
-        )
+    # Appels Bedrock + écritures CockroachDB en parallèle (I/O-bound, chaque
+    # thread ouvre sa propre connexion psycopg2) — un document de 20 chunks
+    # traité en série dépassait les 30s de timeout API Gateway.
+    with ThreadPoolExecutor(max_workers=EMBEDDING_WORKERS) as pool:
+        list(pool.map(lambda c: _embed_and_store_chunk(c, user_id, document_id), chunks))
 
     return {
         "filename": filename,
         "document_id": document_id,
         "chunks_stored": len(chunks),
+        "truncated": truncated,
     }
 
 

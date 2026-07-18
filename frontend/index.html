@@ -390,6 +390,7 @@
   }
 
   #user-input::placeholder { color: var(--text-faint); }
+  #user-input:disabled { opacity: 0.55; cursor: not-allowed; }
 
   button#send {
     background: linear-gradient(135deg, var(--accent), var(--accent-dim));
@@ -428,9 +429,33 @@
   }
   button#upload-btn:hover:not(:disabled) { border-color: var(--accent-dim); color: var(--accent-bright); }
   button#upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  button#upload-btn.uploading svg { animation: spin 1s linear infinite; }
 
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  .upload-status {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    margin: 0 24px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--panel-raised);
+    border: 1px solid var(--accent-dim);
+    font-size: 12.5px;
+    color: var(--text);
+  }
+
+  .upload-status.show { display: flex; }
+
+  .upload-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    flex-shrink: 0;
+    animation: spin 0.7s linear infinite;
+  }
 
   .msg-row.system {
     align-self: center;
@@ -671,6 +696,10 @@
 
   <div id="chat-column">
     <div id="messages"></div>
+    <div id="upload-status" class="upload-status">
+      <span class="upload-spinner"></span>
+      <span id="upload-status-text"></span>
+    </div>
     <div id="input-row">
       <input type="file" id="file-input" accept=".pdf,.txt,.md" hidden>
       <button id="upload-btn" type="button" title="Envoyer un document (.pdf, .txt, .md) à l'agent">
@@ -712,6 +741,8 @@
   const fileInputEl = document.getElementById('file-input');
   const uploadBtn = document.getElementById('upload-btn');
   const memContentEl = document.getElementById('mem-content');
+  const uploadStatusEl = document.getElementById('upload-status');
+  const uploadStatusText = document.getElementById('upload-status-text');
 
   // URL fixe : ce frontend ne sert qu'un seul déploiement, pas besoin de champ éditable.
   const API_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
@@ -900,17 +931,28 @@
     });
   }
 
+  function setUploadingState(isUploading, text) {
+    uploadStatusEl.classList.toggle('show', isUploading);
+    uploadStatusText.textContent = text || '';
+    // Bloqué tant que l'upload n'est pas terminé : impossible d'envoyer un
+    // message ou de relancer un upload par-dessus un autre.
+    uploadBtn.disabled = isUploading;
+    sendBtn.disabled = isUploading;
+    inputEl.disabled = isUploading;
+  }
+
   async function uploadFile(file) {
     if (file.size > MAX_UPLOAD_BYTES) {
       addSystemMessage(`"${file.name}" dépasse la taille max (${(MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0)} Mo).`, true);
       return;
     }
-    uploadBtn.disabled = true;
-    uploadBtn.classList.add('uploading');
-    const statusBubble = addSystemMessage(`Envoi de "${file.name}"...`);
+
+    setUploadingState(true, `Envoi de "${file.name}"...`);
 
     try {
       const file_base64 = await readFileAsBase64(file);
+      setUploadingState(true, `Indexation de "${file.name}" (extraction, découpage, embeddings)...`);
+
       const res = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -921,19 +963,21 @@
           file_base64
         })
       });
-      const data = await res.json();
-      if (data.error) {
-        statusBubble.textContent = `Échec de l'envoi de "${file.name}" : ${data.error}`;
-        statusBubble.classList.add('error');
+
+      let data = null;
+      try { data = await res.json(); } catch { /* réponse non-JSON (ex: timeout API Gateway) */ }
+
+      if (!res.ok || !data || data.error) {
+        const reason = data && data.error ? data.error : `le serveur n'a pas répondu correctement (HTTP ${res.status})`;
+        addSystemMessage(`Échec de l'envoi de "${file.name}" : ${reason}`, true);
       } else {
-        statusBubble.textContent = `📄 "${data.filename}" indexé — ${data.chunks_stored} passage(s) ajouté(s) à la mémoire vectorielle.`;
+        const truncNote = data.truncated ? ' (document tronqué — trop volumineux pour être indexé en entier)' : '';
+        addSystemMessage(`📄 "${data.filename}" indexé — ${data.chunks_stored} passage(s) ajouté(s) à la mémoire vectorielle.${truncNote}`);
       }
     } catch (err) {
-      statusBubble.textContent = `Échec de l'envoi de "${file.name}" : ${err.message}`;
-      statusBubble.classList.add('error');
+      addSystemMessage(`Échec de l'envoi de "${file.name}" : ${err.message}`, true);
     } finally {
-      uploadBtn.disabled = false;
-      uploadBtn.classList.remove('uploading');
+      setUploadingState(false);
       fileInputEl.value = '';
     }
   }
