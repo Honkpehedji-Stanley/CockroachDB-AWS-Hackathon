@@ -85,6 +85,18 @@ def ingest_local_document(local_path: str, user_id: str) -> dict:
     return _ingest_text(text, user_id, filename=os.path.basename(local_path))
 
 
+def ingest_bytes(raw_bytes: bytes, user_id: str, filename: str, max_chunks: int = MAX_CHUNKS_SYNC) -> dict:
+    """Extraction + indexation à partir d'octets déjà en mémoire (pas de fichier
+    local ni de re-téléchargement S3) — utilisé quand un document est joint
+    directement à un message de chat. Le texte extrait est inclus dans le
+    résultat pour être injecté tel quel dans le prompt de cette réponse.
+    """
+    text = _extract_text(filename, raw_bytes)
+    result = _ingest_text(text, user_id, filename, max_chunks=max_chunks)
+    result["extracted_text"] = text
+    return result
+
+
 def _embed_and_store_chunk(chunk: str, user_id: str, document_id: str) -> None:
     embedding = bedrock_client.generate_embedding(chunk)
     memory.save_memory_embedding(
@@ -96,11 +108,11 @@ def _embed_and_store_chunk(chunk: str, user_id: str, document_id: str) -> None:
     )
 
 
-def _ingest_text(text: str, user_id: str, filename: str) -> dict:
+def _ingest_text(text: str, user_id: str, filename: str, max_chunks: int = MAX_CHUNKS_SYNC) -> dict:
     document_id = str(uuid.uuid4())
     chunks = _chunk_text(text)
-    truncated = len(chunks) > MAX_CHUNKS_SYNC
-    chunks = chunks[:MAX_CHUNKS_SYNC]
+    truncated = len(chunks) > max_chunks
+    chunks = chunks[:max_chunks]
 
     # Appels Bedrock + écritures CockroachDB en parallèle (I/O-bound, chaque
     # thread ouvre sa propre connexion psycopg2) — un document de 20 chunks

@@ -21,15 +21,25 @@ CORS_HEADERS = {
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024  # 4 Mo décodés — marge sous la limite Lambda (~6 Mo côté payload base64)
 ALLOWED_UPLOAD_EXTENSIONS = (".pdf", ".txt", ".md")
 
+# Un message avec pièce jointe fait, dans la même requête HTTP : upload S3 +
+# extraction + chunking/embeddings + appel Claude. Budget de chunks plus
+# serré que l'upload seul (MAX_CHUNKS_SYNC dans ingest.py) pour laisser de
+# la marge au reste du tour sous les 30s d'intégration API Gateway.
+MAX_CHUNKS_WITH_MESSAGE = 24
+DOCUMENT_CONTEXT_CHARS = 6000  # texte brut injecté directement dans le prompt, pas juste indexé
+
 SYSTEM_PROMPT = """Tu es un assistant IA avec une mémoire persistante stockée dans CockroachDB.
 Utilise le contexte fourni (historique récent + souvenirs pertinents) pour répondre de façon
 personnalisée et cohérente avec les échanges précédents.
+Si un document est joint au message (section "Document joint"), base ta réponse en priorité
+sur son contenu plutôt que sur la recherche de souvenirs.
 Si tu as besoin d'inspecter le schéma de la base ou d'exécuter une requête de vérification,
 utilise les outils MCP mis à ta disposition."""
 
 
-def build_prompt_context(user_id: str, user_message: str) -> tuple[str, list[dict]]:
-    """Assemble l'historique récent + les souvenirs sémantiquement proches.
+def build_prompt_context(user_id: str, user_message: str, document_context: str | None = None) -> tuple[str, list[dict]]:
+    """Assemble l'historique récent + les souvenirs sémantiquement proches
+    (+ le texte d'un document tout juste joint au message, le cas échéant).
 
     Retourne aussi la liste des souvenirs utilisés (pour affichage côté
     frontend — rend la recherche vectorielle visible, pas juste interne).
@@ -41,7 +51,10 @@ def build_prompt_context(user_id: str, user_message: str) -> tuple[str, list[dic
     similar = memory.search_similar_memories(user_id, query_embedding, top_k=5)
     memories_text = "\n".join(f"- {m['content']} (distance={m['distance']:.3f})" for m in similar)
 
+    document_block = f"## Document joint à ce message\n{document_context}\n\n" if document_context else ""
+
     context_block = (
+        f"{document_block}"
         f"## Historique récent\n{history_text or '(aucun)'}\n\n"
         f"## Souvenirs pertinents\n{memories_text or '(aucun)'}\n\n"
         f"## Message actuel\n{user_message}"
@@ -49,8 +62,8 @@ def build_prompt_context(user_id: str, user_message: str) -> tuple[str, list[dic
     return context_block, similar
 
 
-def run_agent_turn(user_id: str, user_message: str) -> tuple[str, list[dict]]:
-    context_block, similar_memories = build_prompt_context(user_id, user_message)
+def run_agent_turn(user_id: str, user_message: str, document_context: str | None = None) -> tuple[str, list[dict]]:
+    context_block, similar_memories = build_prompt_context(user_id, user_message, document_context)
     messages = [{"role": "user", "content": context_block}]
 
     # Anthropic tool schema (le format attendu par l'API Messages/Bedrock)
@@ -123,14 +136,59 @@ def _handle_upload(body: dict) -> dict:
     return _response(200, {**result, "user_id": user_id})
 
 
+def _ingest_attachment_for_chat(user_id: str, attachment: dict) -> tuple[str, dict]:
+    """Upload + indexe une pièce jointe envoyée avec un message de chat, et
+    retourne son texte brut (pour l'injecter directement dans le prompt de
+    cette réponse) + les métadonnées d'indexation.
+    """
+    filename = attachment.get("filename")
+    file_b64 = attachment.get("file_base64")
+
+    if not filename or not file_b64:
+        raise ValueError("Les champs 'filename' et 'file_base64' de la pièce jointe sont requis.")
+    if not filename.lower().endswith(ALLOWED_UPLOAD_EXTENSIONS):
+        raise ValueError(f"Extension non supportée. Formats acceptés : {', '.join(ALLOWED_UPLOAD_EXTENSIONS)}")
+
+    try:
+        raw_bytes = base64.b64decode(file_b64)
+    except Exception:
+        raise ValueError("file_base64 invalide (décodage échoué).")
+
+    if len(raw_bytes) > MAX_UPLOAD_BYTES:
+        raise ValueError(f"Fichier trop volumineux (max {MAX_UPLOAD_BYTES // (1024 * 1024)} Mo).")
+
+    key = f"{user_id}/{uuid.uuid4()}_{filename}"
+    ingest.upload_bytes_to_s3(raw_bytes, key)
+    result = ingest.ingest_bytes(raw_bytes, user_id, filename, max_chunks=MAX_CHUNKS_WITH_MESSAGE)
+
+    document_context = result["extracted_text"][:DOCUMENT_CONTEXT_CHARS]
+    attachment_info = {
+        "filename": filename,
+        "document_id": result["document_id"],
+        "chunks_stored": result["chunks_stored"],
+        "truncated": result["truncated"],
+    }
+    return document_context, attachment_info
+
+
 def _handle_chat(body: dict) -> dict:
     user_name = body.get("user_name", "anonymous")
     user_message = body.get("message")
+    attachment = body.get("attachment")
     if not user_message:
         return _response(400, {"error": "Le champ 'message' est requis."})
 
     user_id = memory.get_or_create_user(user_name)
-    reply, similar_memories = run_agent_turn(user_id, user_message)
+
+    document_context = None
+    attachment_info = None
+    if attachment:
+        try:
+            document_context, attachment_info = _ingest_attachment_for_chat(user_id, attachment)
+        except ValueError as exc:
+            return _response(400, {"error": str(exc)})
+
+    reply, similar_memories = run_agent_turn(user_id, user_message, document_context)
 
     memories_used = [
         {
@@ -141,7 +199,10 @@ def _handle_chat(body: dict) -> dict:
         for m in similar_memories
     ]
 
-    return _response(200, {"reply": reply, "user_id": user_id, "memories_used": memories_used})
+    payload = {"reply": reply, "user_id": user_id, "memories_used": memories_used}
+    if attachment_info:
+        payload["attachment_info"] = attachment_info
+    return _response(200, payload)
 
 
 def lambda_handler(event, context):

@@ -432,6 +432,37 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .staged-attachment {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin: 0 24px;
+    padding: 8px 10px 8px 14px;
+    border-radius: 10px;
+    background: var(--panel-raised);
+    border: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--text-dim);
+    width: fit-content;
+  }
+
+  .staged-attachment.show { display: flex; }
+
+  .staged-attachment #staged-filename { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+
+  .staged-attachment button#staged-remove {
+    background: transparent;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 3px;
+    border-radius: 5px;
+    transition: all 0.15s;
+  }
+  .staged-attachment button#staged-remove:hover { color: var(--danger); background: var(--danger-bg); }
+
   .upload-status {
     display: none;
     align-items: center;
@@ -696,6 +727,13 @@
 
   <div id="chat-column">
     <div id="messages"></div>
+    <div id="staged-attachment" class="staged-attachment">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+      <span id="staged-filename"></span>
+      <button id="staged-remove" type="button" title="Retirer la pièce jointe">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
     <div id="upload-status" class="upload-status">
       <span class="upload-spinner"></span>
       <span id="upload-status-text"></span>
@@ -743,6 +781,9 @@
   const memContentEl = document.getElementById('mem-content');
   const uploadStatusEl = document.getElementById('upload-status');
   const uploadStatusText = document.getElementById('upload-status-text');
+  const stagedAttachmentEl = document.getElementById('staged-attachment');
+  const stagedFilenameEl = document.getElementById('staged-filename');
+  const stagedRemoveBtn = document.getElementById('staged-remove');
 
   // URL fixe : ce frontend ne sert qu'un seul déploiement, pas besoin de champ éditable.
   const API_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
@@ -884,43 +925,26 @@
     renderMemoryPanel([]);
   }
 
-  async function sendMessage() {
-    const message = inputEl.value.trim();
-    if (!message) return;
+  // --- Pièce jointe : choisir un fichier ne l'envoie pas tout de suite — il
+  // reste "en attente" (chip amovible) jusqu'à ce qu'on appuie sur Envoyer,
+  // comme sur ChatGPT/Claude. Il part alors avec le message dans la même
+  // requête, pour que l'agent le "voie" garanti pour cette réponse précise
+  // (pas seulement via la recherche vectorielle, trop générique pour un
+  // "résume-moi ce document"). Le document reste aussi indexé en mémoire
+  // long terme pour les questions futures.
+  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // doit rester cohérent avec agent/handler.py
+  const ALLOWED_UPLOAD_EXTENSIONS = ['.pdf', '.txt', '.md'];
+  let stagedFile = null;
 
-    addMessage(message, 'user');
-    inputEl.value = '';
-    inputEl.style.height = 'auto';
-    sendBtn.disabled = true;
-    const pendingRow = addTypingIndicator();
-
-    try {
-      const res = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_name: usernameEl.value || 'anonymous', message })
-      });
-      const data = await res.json();
-      pendingRow.remove();
-      if (data.error) {
-        addMessage(`Erreur : ${data.error}`, 'agent', true);
-      } else {
-        addMessage(data.reply, 'agent');
-        renderMemoryPanel(data.memories_used);
-      }
-    } catch (err) {
-      pendingRow.remove();
-      addMessage(`Impossible de contacter l'agent : ${err.message}`, 'agent', true);
-    } finally {
-      sendBtn.disabled = false;
-      inputEl.focus();
+  function setStagedFile(file) {
+    stagedFile = file;
+    if (file) {
+      stagedFilenameEl.textContent = file.name;
+      stagedAttachmentEl.classList.add('show');
+    } else {
+      stagedAttachmentEl.classList.remove('show');
     }
   }
-
-  // --- Upload de documents : lit le fichier en base64 et le poste à la même
-  // Lambda (action: "upload"), qui le stocke sur S3 puis l'indexe (chunks +
-  // embeddings Titan) via le pipeline ingest.py existant. ---
-  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // doit rester cohérent avec agent/handler.py
 
   function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
@@ -931,61 +955,89 @@
     });
   }
 
-  function setUploadingState(isUploading, text) {
-    uploadStatusEl.classList.toggle('show', isUploading);
+  function setBusyState(isBusy, text) {
+    uploadStatusEl.classList.toggle('show', isBusy && !!text);
     uploadStatusText.textContent = text || '';
-    // Bloqué tant que l'upload n'est pas terminé : impossible d'envoyer un
-    // message ou de relancer un upload par-dessus un autre.
-    uploadBtn.disabled = isUploading;
-    sendBtn.disabled = isUploading;
-    inputEl.disabled = isUploading;
-  }
-
-  async function uploadFile(file) {
-    if (file.size > MAX_UPLOAD_BYTES) {
-      addSystemMessage(`"${file.name}" dépasse la taille max (${(MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0)} Mo).`, true);
-      return;
-    }
-
-    setUploadingState(true, `Envoi de "${file.name}"...`);
-
-    try {
-      const file_base64 = await readFileAsBase64(file);
-      setUploadingState(true, `Indexation de "${file.name}" (extraction, découpage, embeddings)...`);
-
-      const res = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'upload',
-          user_name: usernameEl.value || 'anonymous',
-          filename: file.name,
-          file_base64
-        })
-      });
-
-      let data = null;
-      try { data = await res.json(); } catch { /* réponse non-JSON (ex: timeout API Gateway) */ }
-
-      if (!res.ok || !data || data.error) {
-        const reason = data && data.error ? data.error : `le serveur n'a pas répondu correctement (HTTP ${res.status})`;
-        addSystemMessage(`Échec de l'envoi de "${file.name}" : ${reason}`, true);
-      } else {
-        const truncNote = data.truncated ? ' (document tronqué — trop volumineux pour être indexé en entier)' : '';
-        addSystemMessage(`📄 "${data.filename}" indexé — ${data.chunks_stored} passage(s) ajouté(s) à la mémoire vectorielle.${truncNote}`);
-      }
-    } catch (err) {
-      addSystemMessage(`Échec de l'envoi de "${file.name}" : ${err.message}`, true);
-    } finally {
-      setUploadingState(false);
-      fileInputEl.value = '';
-    }
+    uploadBtn.disabled = isBusy;
+    sendBtn.disabled = isBusy;
+    inputEl.disabled = isBusy;
   }
 
   uploadBtn.addEventListener('click', () => fileInputEl.click());
   fileInputEl.addEventListener('change', () => {
-    if (fileInputEl.files[0]) uploadFile(fileInputEl.files[0]);
+    const file = fileInputEl.files[0];
+    fileInputEl.value = ''; // permet de resélectionner le même fichier plus tard
+    if (!file) return;
+
+    const lower = file.name.toLowerCase();
+    if (!ALLOWED_UPLOAD_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
+      addSystemMessage(`"${file.name}" : format non supporté (${ALLOWED_UPLOAD_EXTENSIONS.join(', ')}).`, true);
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      addSystemMessage(`"${file.name}" dépasse la taille max (${(MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0)} Mo).`, true);
+      return;
+    }
+    setStagedFile(file);
+    inputEl.focus();
   });
+  stagedRemoveBtn.addEventListener('click', () => setStagedFile(null));
+
+  async function sendMessage() {
+    const message = inputEl.value.trim();
+    const file = stagedFile;
+    if (!message && !file) return;
+
+    addMessage(message || `📎 ${file.name}`, 'user');
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    setStagedFile(null);
+
+    const payload = {
+      user_name: usernameEl.value || 'anonymous',
+      message: message || `Voici le document "${file.name}". Résume-le et dis-moi ce qu'il contient.`
+    };
+
+    let pendingRow = null;
+    if (file) {
+      setBusyState(true, `Lecture de "${file.name}" et préparation de la réponse...`);
+      payload.attachment = { filename: file.name, file_base64: await readFileAsBase64(file) };
+    } else {
+      sendBtn.disabled = true;
+      pendingRow = addTypingIndicator();
+    }
+
+    try {
+      const res = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      let data = null;
+      try { data = await res.json(); } catch { /* réponse non-JSON (ex: timeout API Gateway) */ }
+      if (pendingRow) pendingRow.remove();
+
+      if (!res.ok || !data || data.error) {
+        const reason = data && data.error ? data.error : `le serveur n'a pas répondu correctement (HTTP ${res.status})`;
+        addMessage(`Erreur : ${reason}`, 'agent', true);
+      } else {
+        addMessage(data.reply, 'agent');
+        renderMemoryPanel(data.memories_used);
+        if (data.attachment_info) {
+          const info = data.attachment_info;
+          const truncNote = info.truncated ? ' (document tronqué — trop volumineux pour être indexé en entier)' : '';
+          addSystemMessage(`📄 "${info.filename}" indexé — ${info.chunks_stored} passage(s) ajouté(s) à la mémoire vectorielle.${truncNote}`);
+        }
+      }
+    } catch (err) {
+      if (pendingRow) pendingRow.remove();
+      addMessage(`Impossible de contacter l'agent : ${err.message}`, 'agent', true);
+    } finally {
+      setBusyState(false);
+      inputEl.focus();
+    }
+  }
 
   sendBtn.addEventListener('click', sendMessage);
   inputEl.addEventListener('keydown', (e) => {
