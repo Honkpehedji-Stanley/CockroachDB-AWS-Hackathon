@@ -10,23 +10,39 @@ Ce projet utilise **CockroachDB** comme cerveau à long terme d'un agent IA dép
 
 ## 🏗️ Architecture
 
-```
-Utilisateur → Frontend (chat) → API Gateway (HTTP API) → AWS Lambda (orchestrateur agent, image Docker)
-                                                                  │
-                                                                  ├──► Amazon Bedrock (Claude — raisonnement + tool use)
-                                                                  ├──► Amazon Bedrock (Titan Embeddings G1 — 1536 dim)
-                                                                  ├──► Amazon S3 (stockage brut des documents)
-                                                                  └──► CockroachDB Cloud
-                                                                         ├─ Mémoire structurée (conversations, tâches, contexte) — SQL direct
-                                                                         ├─ Mémoire vectorielle (VECTOR + recherche par similarité L2)
-                                                                         └─ MCP Server managé — appelé par Claude lui-même (tool use)
+```mermaid
+flowchart TD
+    U["Utilisateur (navigateur)"] -->|HTTPS| FE["Frontend statique — index.html"]
+    FE -->|"fetch JSON (POST)"| AG["API Gateway — HTTP API"]
+    AG -->|intégration proxy| L["AWS Lambda — handler.py (image Docker)"]
+
+    subgraph AWS["AWS"]
+        AG
+        L
+        S3[("Amazon S3 — documents bruts")]
+        BR1["Amazon Bedrock — Claude Sonnet 4.5"]
+        BR2["Amazon Bedrock — Titan Embeddings G1"]
+    end
+
+    subgraph CRDB["CockroachDB Cloud"]
+        SQL[("SQL direct (psycopg2)\nuser_context · conversations · tasks\nmemory_embeddings VECTOR(1536)")]
+        MCP["MCP Server managé"]
+    end
+
+    L -->|"contexte : historique + recherche vectorielle"| SQL
+    L -->|"embedding de la requête"| BR2
+    L -->|"raisonnement + tool use"| BR1
+    L -->|"exécute l'outil demandé par Claude"| MCP
+    MCP -->|"introspection lecture seule"| SQL
+    L -->|"persistance : conversation + embedding"| SQL
+    L -->|"pièce jointe : upload brut"| S3
 ```
 
 Deux canaux d'accès à CockroachDB, volontairement distincts :
 - **SQL direct (psycopg2)** : écriture/lecture rapide de la mémoire, recherche vectorielle
 - **MCP Server managé** : exposé comme un **outil que Claude appelle lui-même** pendant son raisonnement (introspection du schéma, requêtes de vérification en lecture seule)
 
-Un diagramme visuel détaillé sera ajouté dans `/docs`.
+Diagramme détaillé (dont le déroulé complet d'un tour de conversation, mémoire comprise) : [`docs/architecture.md`](./docs/architecture.md).
 
 ## 🧰 Stack technique
 
