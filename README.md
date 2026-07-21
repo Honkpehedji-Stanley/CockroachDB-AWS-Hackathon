@@ -4,7 +4,9 @@
 
 ## 🎯 Le problème
 
-Un chatbot classique oublie tout entre deux sessions. Un agent de production, lui, doit se souvenir de ses conversations, de ses tâches, de son contexte utilisateur et de son état — et cette mémoire doit survivre aux redémarrages, aux pannes et aux changements de région.
+Un patient en suivi médical répète son histoire à chaque échange : les symptômes déjà décrits, les résultats d'examens déjà envoyés, ce qui a déjà été essayé. Un chatbot classique aggrave ce problème — il oublie tout entre deux sessions, donc "je te réexplique" devient la norme plutôt que l'exception.
+
+**AI Employee** ne réinitialise jamais sa mémoire. Décris un symptôme aujourd'hui, envoie un compte-rendu d'examen la semaine prochaine, reviens dans un mois avec une question de suivi — l'agent retrouve exactement ce qui a été dit et lu, et construit sa réponse dessus. Précision importante : ce n'est **pas** un outil de diagnostic ou de traitement — c'est une couche de mémoire qui garde la continuité d'une conversation de suivi dans le temps, ce qui manque structurellement aux assistants IA classiques. La même architecture de mémoire se généralise à tout domaine où le contexte doit survivre entre plusieurs sessions (support client, suivi de projet, onboarding) — le suivi médical est le scénario qui la rend la plus concrète.
 
 Ce projet utilise **CockroachDB** comme cerveau à long terme d'un agent IA déployé sur **AWS**, avec un raisonnement propulsé par **Amazon Bedrock**.
 
@@ -110,7 +112,7 @@ Ingestion de documents PDF et texte validée. Recherche vectorielle testée avec
 
 ### ✅ Phase 4 — Déploiement production
 - Image Docker buildée et poussée sur **Amazon ECR**
-- Fonction **AWS Lambda** créée (image container, 512 MB, timeout 30s), rôle IAM dédié (`AWSLambdaBasicExecutionRole`, `AmazonBedrockFullAccess`, `AmazonS3FullAccess`)
+- Fonction **AWS Lambda** créée (image container, 512 MB, timeout 60s), rôle IAM dédié (`AWSLambdaBasicExecutionRole`, `AmazonBedrockFullAccess`, `AmazonS3FullAccess`)
 - Endpoint public : **API Gateway HTTP API** (`https://cuii8r8ija.execute-api.us-east-1.amazonaws.com`), intégration proxy avec la Lambda, CORS activé
 - Frontend de chat fonctionnel (`frontend/index.html`), branché sur l'URL API Gateway
 - Test bout en bout réussi : l'agent répond, se souvient d'une conversation antérieure, tool-use MCP observé en autonomie
@@ -120,6 +122,15 @@ Ingestion de documents PDF et texte validée. Recherche vectorielle testée avec
 ⚠️ **Note pour qui relance `deploy.sh`** : le script provisionne encore une Function URL (legacy, étape 6) — l'API Gateway actuelle a été créée à la main via AWS CLI et n'est pas encore automatisée dans le script. Deux points d'attention si tu la recrées :
 - `SourceArn` de la permission Lambda : `arn:aws:execute-api:{region}:{account}:{api-id}/*` (un seul wildcard — le format à 3 wildcards habituel en REST API v1 échoue silencieusement en HTTP API v2)
 - Le certificat CA CockroachDB (`agent/cc-ca.crt`) doit être copié dans l'image Docker et référencé via `sslrootcert=/var/task/cc-ca.crt` dans `DATABASE_URL` — l'image `public.ecr.aws/lambda/python:3.12` n'a pas de magasin de certificats système complet, donc `sslrootcert=system` échoue
+
+## 🔒 Sécurité et Product Readiness
+
+Choix assumés, pas des oublis :
+
+- **Pas d'authentification utilisateur.** Le champ "nom" du frontend (`user_name`) sert à retrouver/créer un `user_id` dans `user_context` — c'est un identifiant de démo, pas une frontière de sécurité : deux personnes tapant le même nom partagent la même mémoire. Une vraie mise en production ajouterait une authentification (ex. Amazon Cognito) et un `user_id` dérivé d'une session vérifiée, pas d'un champ texte libre.
+- **Throttling actif sur API Gateway** (`ai-employee-api`, stage `$default`) : 5 requêtes/s en continu, rafale de 10 (`ThrottlingRateLimit` / `ThrottlingBurstLimit`). L'API étant publique et sans clé, ça protège contre l'abus de coût (chaque message déclenche des appels Bedrock facturés) sans gêner un usage normal — testé avec une rafale de 20 requêtes simultanées, une partie rejetée (`503`) et le reste servi normalement.
+- **CORS ouvert à `*`** volontairement, pour que le frontend statique (hébergé n'importe où) puisse appeler l'API sans configuration — acceptable pour une démo publique sans données sensibles réelles, à restreindre à l'origine exacte du frontend dans un contexte de production.
+- **Documents uploadés** : extensions limitées (`.pdf`, `.txt`, `.md`), taille plafonnée à 4 Mo, nombre de chunks indexés plafonné (24 avec message, 40 en upload seul) pour rester sous le timeout fixe de 30s d'API Gateway — détaillé dans `agent/handler.py`.
 
 ## 🔧 Installation et lancement
 
