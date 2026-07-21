@@ -13,11 +13,16 @@ Deux canaux d'accès à CockroachDB, volontairement distincts :
 """
 import json
 import os
+import secrets
 import uuid
+from datetime import datetime, timedelta, timezone
 
+import bcrypt
 import psycopg2
 import psycopg2.extras
 import requests
+
+SESSION_TTL = timedelta(days=7)
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
@@ -49,6 +54,85 @@ def get_or_create_user(name: str) -> str:
         )
         conn.commit()
         return new_id
+
+
+class AuthError(Exception):
+    """Nom déjà pris, identifiants invalides, ou session absente/expirée."""
+
+
+def create_account(name: str, password: str) -> str:
+    """Crée un compte avec mot de passe (haché, jamais stocké en clair). Retourne le user_id."""
+    password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM user_context WHERE name = %s", (name,))
+        if cur.fetchone():
+            raise AuthError("Ce nom est déjà pris.")
+        new_id = str(uuid.uuid4())
+        cur.execute(
+            "INSERT INTO user_context (user_id, name, password_hash) VALUES (%s, %s, %s)",
+            (new_id, name, password_hash),
+        )
+        conn.commit()
+        return new_id
+
+
+def verify_credentials(name: str, password: str) -> str:
+    """Vérifie nom + mot de passe. Retourne le user_id si valide, lève AuthError sinon."""
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT user_id, password_hash FROM user_context WHERE name = %s", (name,))
+        row = cur.fetchone()
+        if not row or not row[1]:
+            raise AuthError("Nom ou mot de passe incorrect.")
+        user_id, password_hash = row
+        if not bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8")):
+            raise AuthError("Nom ou mot de passe incorrect.")
+        return str(user_id)
+
+
+def create_session(user_id: str) -> str:
+    """Émet un jeton de session opaque, stocké côté serveur avec expiration."""
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + SESSION_TTL
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO sessions (session_token, user_id, expires_at) VALUES (%s, %s, %s)",
+            (token, user_id, expires_at),
+        )
+        conn.commit()
+    return token
+
+
+def get_user_from_session(token: str) -> str:
+    """Résout un jeton de session en user_id. Lève AuthError si absent/expiré."""
+    if not token:
+        raise AuthError("Session manquante — merci de te reconnecter.")
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT user_id FROM sessions WHERE session_token = %s AND expires_at > now()",
+            (token,),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise AuthError("Session expirée ou invalide — merci de te reconnecter.")
+        return str(row[0])
+
+
+def get_conversation_history(user_id: str, limit: int = 200) -> list[dict]:
+    """Historique complet (jusqu'à `limit` messages), pour le panneau dédié du frontend —
+    distinct de get_recent_conversations() qui alimente le contexte du prompt (limité à 10)."""
+    with get_connection() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT role, content, created_at
+            FROM conversations
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (user_id, limit),
+        )
+        rows = cur.fetchall()
+        return list(reversed(rows))
 
 
 def get_recent_conversations(user_id: str, limit: int = 10) -> list[dict]:

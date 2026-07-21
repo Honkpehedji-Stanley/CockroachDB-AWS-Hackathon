@@ -20,6 +20,7 @@ CORS_HEADERS = {
 
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024  # 4 Mo décodés — marge sous la limite Lambda (~6 Mo côté payload base64)
 ALLOWED_UPLOAD_EXTENSIONS = (".pdf", ".txt", ".md")
+MIN_PASSWORD_LENGTH = 8
 
 # Un message avec pièce jointe fait, dans la même requête HTTP : upload S3 +
 # extraction + chunking/embeddings + appel Claude. Budget de chunks plus
@@ -109,8 +110,57 @@ def _response(status: int, payload: dict) -> dict:
     }
 
 
+def _handle_signup(body: dict) -> dict:
+    name = (body.get("name") or "").strip()
+    password = body.get("password") or ""
+    if len(name) < 2:
+        return _response(400, {"error": "Le nom doit faire au moins 2 caractères."})
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return _response(400, {"error": f"Le mot de passe doit faire au moins {MIN_PASSWORD_LENGTH} caractères."})
+
+    try:
+        user_id = memory.create_account(name, password)
+    except memory.AuthError as exc:
+        return _response(409, {"error": str(exc)})
+
+    token = memory.create_session(user_id)
+    return _response(200, {"user_id": user_id, "name": name, "session_token": token})
+
+
+def _handle_login(body: dict) -> dict:
+    name = (body.get("name") or "").strip()
+    password = body.get("password") or ""
+
+    try:
+        user_id = memory.verify_credentials(name, password)
+    except memory.AuthError as exc:
+        return _response(401, {"error": str(exc)})
+
+    token = memory.create_session(user_id)
+    return _response(200, {"user_id": user_id, "name": name, "session_token": token})
+
+
+def _handle_history(body: dict) -> dict:
+    try:
+        user_id = memory.get_user_from_session(body.get("session_token"))
+    except memory.AuthError as exc:
+        return _response(401, {"error": str(exc)})
+
+    history = memory.get_conversation_history(user_id)
+    return _response(200, {
+        "history": [
+            {"role": h["role"], "content": h["content"], "created_at": h["created_at"].isoformat()}
+            for h in history
+        ]
+    })
+
+
 def _handle_upload(body: dict) -> dict:
-    user_name = body.get("user_name", "anonymous")
+    try:
+        user_id = memory.get_user_from_session(body.get("session_token"))
+    except memory.AuthError as exc:
+        return _response(401, {"error": str(exc)})
+
     filename = body.get("filename")
     file_b64 = body.get("file_base64")
 
@@ -127,7 +177,6 @@ def _handle_upload(body: dict) -> dict:
     if len(raw_bytes) > MAX_UPLOAD_BYTES:
         return _response(400, {"error": f"Fichier trop volumineux (max {MAX_UPLOAD_BYTES // (1024 * 1024)} Mo)."})
 
-    user_id = memory.get_or_create_user(user_name)
     key = f"{user_id}/{uuid.uuid4()}_{filename}"
     ingest.upload_bytes_to_s3(raw_bytes, key)
     result = ingest.ingest_document_from_s3(key, user_id)
@@ -172,13 +221,15 @@ def _ingest_attachment_for_chat(user_id: str, attachment: dict) -> tuple[str, di
 
 
 def _handle_chat(body: dict) -> dict:
-    user_name = body.get("user_name", "anonymous")
+    try:
+        user_id = memory.get_user_from_session(body.get("session_token"))
+    except memory.AuthError as exc:
+        return _response(401, {"error": str(exc)})
+
     user_message = body.get("message")
     attachment = body.get("attachment")
     if not user_message:
         return _response(400, {"error": "Le champ 'message' est requis."})
-
-    user_id = memory.get_or_create_user(user_name)
 
     document_context = None
     attachment_info = None
@@ -214,7 +265,14 @@ def lambda_handler(event, context):
 
     try:
         body = json.loads(event.get("body", "{}")) if "body" in event else event
-        if body.get("action") == "upload":
+        action = body.get("action")
+        if action == "signup":
+            return _handle_signup(body)
+        if action == "login":
+            return _handle_login(body)
+        if action == "history":
+            return _handle_history(body)
+        if action == "upload":
             return _handle_upload(body)
         return _handle_chat(body)
     except Exception as exc:  # noqa: BLE001 — toujours répondre proprement au client
@@ -224,5 +282,8 @@ def lambda_handler(event, context):
 
 if __name__ == "__main__":
     # Test local, sans Lambda : python -m agent.handler
-    test_event = {"user_name": "stanley", "message": "Salut, tu te souviens de moi ?"}
+    signup = lambda_handler({"action": "signup", "name": "stanley", "password": "test1234"}, None)
+    print(signup)
+    token = json.loads(signup["body"]).get("session_token")
+    test_event = {"session_token": token, "message": "Salut, tu te souviens de moi ?"}
     print(lambda_handler(test_event, None))

@@ -102,7 +102,7 @@ Service AWS utilisé (minimum 1 requis) :
 Cluster CockroachDB Cloud provisionné, MCP Server testé et validé.
 
 ### ✅ Phase 1 — Schéma de mémoire
-Tables `user_context`, `conversations`, `tasks`, `memory_embeddings` créées, avec index vectoriel. Schéma versionné dans [`infra/schema.sql`](./infra/schema.sql).
+Tables `user_context`, `conversations`, `tasks`, `memory_embeddings` (avec index vectoriel) et `sessions` (jetons d'authentification) créées. Schéma versionné dans [`infra/schema.sql`](./infra/schema.sql).
 
 ### ✅ Phase 2 — Cœur de l'agent
 Lambda handler fonctionnel (testé en local puis déployé), intégration Bedrock (Claude + Titan), boucle "tool use" MCP validée, persistance de la mémoire conversationnelle validée sur 2 tours.
@@ -127,7 +127,7 @@ Ingestion de documents PDF et texte validée. Recherche vectorielle testée avec
 
 Choix assumés, pas des oublis :
 
-- **Pas d'authentification utilisateur.** Le champ "nom" du frontend (`user_name`) sert à retrouver/créer un `user_id` dans `user_context` — c'est un identifiant de démo, pas une frontière de sécurité : deux personnes tapant le même nom partagent la même mémoire. Une vraie mise en production ajouterait une authentification (ex. Amazon Cognito) et un `user_id` dérivé d'une session vérifiée, pas d'un champ texte libre.
+- **Authentification par compte + mot de passe**, gérée entièrement dans CockroachDB (pas de dépendance externe type Cognito) : mots de passe hachés avec `bcrypt` (jamais stockés en clair), jetons de session opaques (table `sessions`, expiration 7 jours) exigés sur les routes chat/upload/historique — plus de champ "nom" en clair sans vérification. Compromis assumé : le jeton est conservé en `localStorage` côté client (persistant entre rechargements), donc vulnérable en cas de XSS — acceptable pour une démo publique sans données sensibles réelles.
 - **Throttling actif sur API Gateway** (`ai-employee-api`, stage `$default`) : 5 requêtes/s en continu, rafale de 10 (`ThrottlingRateLimit` / `ThrottlingBurstLimit`). L'API étant publique et sans clé, ça protège contre l'abus de coût (chaque message déclenche des appels Bedrock facturés) sans gêner un usage normal — testé avec une rafale de 20 requêtes simultanées, une partie rejetée (`503`) et le reste servi normalement.
 - **CORS ouvert à `*`** volontairement, pour que le frontend statique (hébergé n'importe où) puisse appeler l'API sans configuration — acceptable pour une démo publique sans données sensibles réelles, à restreindre à l'origine exacte du frontend dans un contexte de production.
 - **Documents uploadés** : extensions limitées (`.pdf`, `.txt`, `.md`), taille plafonnée à 4 Mo, nombre de chunks indexés plafonné (24 avec message, 40 en upload seul) pour rester sous le timeout fixe de 30s d'API Gateway — détaillé dans `agent/handler.py`.
@@ -183,9 +183,15 @@ chmod +x deploy.sh
 ```
 Le script build et pousse l'image, puis crée/met à jour la fonction Lambda (il provisionne aussi une Function URL, non utilisée en production — voir note Phase 4 ci-dessus). Il faut ensuite exposer la Lambda via une **API Gateway HTTP API** (intégration proxy, route `$default`, CORS activé) — c'est cette URL-là qu'il faut utiliser en pratique. Teste-la avec :
 ```bash
+# 1. Créer un compte (retourne un session_token)
 curl -X POST <URL_API_GATEWAY> \
   -H 'Content-Type: application/json' \
-  -d '{"user_name":"stanley","message":"Salut !"}'
+  -d '{"action":"signup","name":"stanley","password":"un_mot_de_passe_solide"}'
+
+# 2. Discuter avec le jeton obtenu
+curl -X POST <URL_API_GATEWAY> \
+  -H 'Content-Type: application/json' \
+  -d '{"session_token":"<TOKEN_REÇU>","message":"Salut !"}'
 ```
 
 ### 7. Lancer le frontend

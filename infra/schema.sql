@@ -13,13 +13,15 @@
 -- Rôle : profil et préférences persistantes de chaque utilisateur
 -- ------------------------------------------------------------
 CREATE TABLE public.user_context (
-    user_id     UUID NOT NULL DEFAULT gen_random_uuid(),
-    name        STRING NULL,
-    preferences JSONB NULL,
-    created_at  TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
-    updated_at  TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
+    user_id       UUID NOT NULL DEFAULT gen_random_uuid(),
+    name          STRING NULL,
+    password_hash STRING NULL,
+    preferences   JSONB NULL,
+    created_at    TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
+    updated_at    TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
     CONSTRAINT user_context_pkey PRIMARY KEY (user_id ASC)
 );
+CREATE UNIQUE INDEX user_context_name_unique ON public.user_context (name);
 
 -- ------------------------------------------------------------
 -- Table : conversations
@@ -77,4 +79,19 @@ CREATE TABLE public.memory_embeddings (
     CONSTRAINT memory_embeddings_user_id_fkey FOREIGN KEY (user_id)
         REFERENCES public.user_context (user_id),
     VECTOR INDEX idx_memory_embeddings (embedding vector_l2_ops)
+);
+
+-- ------------------------------------------------------------
+-- Table : sessions
+-- Rôle : jetons de session émis à la connexion (signup/login),
+-- consommés par le chat/l'upload pour authentifier chaque requête.
+-- ------------------------------------------------------------
+CREATE TABLE public.sessions (
+    session_token STRING NOT NULL,
+    user_id       UUID NOT NULL,
+    expires_at    TIMESTAMPTZ NOT NULL,
+    created_at    TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
+    CONSTRAINT sessions_pkey PRIMARY KEY (session_token ASC),
+    CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id)
+        REFERENCES public.user_context (user_id)
 );

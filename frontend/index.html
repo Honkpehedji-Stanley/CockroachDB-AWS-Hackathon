@@ -503,7 +503,7 @@
   }
   .msg-row.system .msg.error { border-color: var(--danger); color: var(--danger); }
 
-  #memory-panel {
+  #side-panel {
     width: 300px;
     border-right: 1px solid var(--border-soft);
     padding: 22px 20px;
@@ -515,26 +515,7 @@
     background: rgba(255,255,255,0.01);
   }
 
-  #memory-panel h2 {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 12px;
-    color: var(--text);
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    margin: 0 0 6px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  #memory-panel h2::before {
-    content: '';
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-
-  #memory-panel .sub {
+  #side-panel .sub {
     margin: 0 0 18px;
     line-height: 1.6;
     color: var(--text-faint);
@@ -564,41 +545,9 @@
     letter-spacing: 0.4px;
   }
 
-  .config-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 24px;
-    border-bottom: 1px solid var(--border-soft);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    flex-shrink: 0;
-  }
-
-  .config-bar label {
-    color: var(--text-faint);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-size: 10px;
-  }
-
-  .config-bar input {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 7px;
-    padding: 6px 9px;
-    font-family: inherit;
-    font-size: 11px;
-    transition: border-color 0.15s;
-    width: 160px;
-  }
-
-  .config-bar input:focus { outline: none; border-color: var(--accent-dim); }
-
   @media (max-width: 860px) {
-    #memory-panel { display: none; }
-    #memory-panel.open {
+    #side-panel { display: none; }
+    #side-panel.open {
       display: block;
       position: fixed;
       inset: 0;
@@ -686,6 +635,177 @@
     border-color: var(--danger);
   }
   .modal-actions .btn-danger:hover { filter: brightness(1.1); }
+
+  /* --- Authentification --- */
+  .auth-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: var(--bg-glow), var(--bg);
+    align-items: center;
+    justify-content: center;
+  }
+  .auth-overlay.show { display: flex; }
+
+  .auth-card {
+    width: min(360px, 90vw);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  }
+
+  .auth-card h1 {
+    font-size: 18px;
+    margin: 0 0 2px;
+    font-weight: 700;
+  }
+  .auth-card .auth-tagline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin: 0 0 22px;
+  }
+
+  .auth-tabs {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .auth-tabs button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 9px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .auth-tabs button + button { border-left: 1px solid var(--border); }
+  .auth-tabs button.active { background: var(--accent-dim); color: #06201d; }
+
+  .auth-form label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 12px 0 5px;
+  }
+  .auth-form input {
+    width: 100%;
+    background: var(--panel-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  .auth-form input:focus { outline: none; border-color: var(--accent-dim); }
+
+  .auth-error {
+    color: var(--danger);
+    font-size: 12px;
+    margin: 10px 0 0;
+    min-height: 14px;
+  }
+
+  .auth-form button[type="submit"] {
+    width: 100%;
+    margin-top: 18px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+    color: #06201d;
+    border: none;
+    border-radius: 9px;
+    padding: 11px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .auth-form button[type="submit"]:hover:not(:disabled) { filter: brightness(1.1); }
+  .auth-form button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .auth-hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 14px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  /* --- Chip utilisateur (remplace le champ nom libre) --- */
+  .user-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 4px 6px 4px 12px;
+  }
+  .user-chip button#logout-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    border-radius: 50%;
+    transition: all 0.15s;
+  }
+  .user-chip button#logout-btn:hover { color: var(--danger); background: var(--danger-bg); }
+
+  /* --- Onglets du panneau latéral (Mémoire / Historique) --- */
+  .side-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .side-tabs button {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .side-tabs button.active { background: var(--accent-dim); color: #06201d; border-color: var(--accent-dim); }
+
+  .side-panel-section { display: none; }
+  .side-panel-section.active { display: block; }
+
+  .history-record {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 10px;
+    margin-bottom: 6px;
+    background: var(--panel-raised);
+  }
+  .history-record .hist-role {
+    color: var(--accent);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+  }
+  .history-record.role-assistant .hist-role { color: var(--accent-bright); }
+  .history-record .hist-time { color: var(--text-faint); font-size: 10px; float: right; }
 </style>
 </head>
 <body>
@@ -705,6 +825,12 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
     </button>
   </div>
+  <span class="user-chip" id="user-chip" style="display:none;">
+    <span id="user-chip-name"></span>
+    <button id="logout-btn" title="Se déconnecter">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+    </button>
+  </span>
   <button id="toggle-memory" title="Panneau mémoire">Mémoire</button>
   <button id="clear-chat" title="Effacer la conversation">Effacer</button>
 </header>
@@ -713,16 +839,42 @@
   ⚠ Cette page est ouverte en <code>file://</code> — l'API refusera les requêtes (CORS bloque l'origine "null"). Sers-la via un serveur local, ex : <code>cd frontend && python3 -m http.server 8080</code>, puis ouvre <code>http://localhost:8080</code>.
 </div>
 
-<div class="config-bar">
-  <label for="username">Ton nom</label>
-  <input id="username" placeholder="Ton nom" value="stanley">
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <h1>AI Employee</h1>
+    <p class="auth-tagline">agent de suivi · mémoire CockroachDB × AWS</p>
+    <div class="auth-tabs">
+      <button type="button" id="auth-tab-login" class="active">Connexion</button>
+      <button type="button" id="auth-tab-signup">Créer un compte</button>
+    </div>
+    <form id="auth-form" class="auth-form">
+      <label for="auth-name">Nom</label>
+      <input id="auth-name" type="text" autocomplete="username" required>
+      <label for="auth-password">Mot de passe</label>
+      <input id="auth-password" type="password" autocomplete="current-password" required minlength="8">
+      <p class="auth-error" id="auth-error"></p>
+      <button type="submit" id="auth-submit">Se connecter</button>
+    </form>
+    <p class="auth-hint">Compte de démo — n'utilise pas un mot de passe que tu réemploies ailleurs.</p>
+  </div>
 </div>
 
 <main>
-  <aside id="memory-panel">
-    <h2>Mémoire mobilisée</h2>
-    <p class="sub">Souvenirs (conversations passées et documents indexés) que la recherche vectorielle CockroachDB a retrouvés pour construire la dernière réponse, du plus au moins proche.</p>
-    <div id="mem-content" class="mem-empty">Aucun échange pour le moment.</div>
+  <aside id="side-panel">
+    <div class="side-tabs">
+      <button type="button" id="tab-memory" class="active">Mémoire mobilisée</button>
+      <button type="button" id="tab-history">Historique</button>
+    </div>
+
+    <div id="memory-section" class="side-panel-section active">
+      <p class="sub">Souvenirs (conversations passées et documents indexés) que la recherche vectorielle CockroachDB a retrouvés pour construire la dernière réponse, du plus au moins proche.</p>
+      <div id="mem-content" class="mem-empty">Aucun échange pour le moment.</div>
+    </div>
+
+    <div id="history-section" class="side-panel-section">
+      <p class="sub">Historique complet de tes conversations avec l'agent, stocké dans CockroachDB — persiste d'une session à l'autre.</p>
+      <div id="history-content" class="mem-empty">Aucun historique pour le moment.</div>
+    </div>
   </aside>
 
   <div id="chat-column">
@@ -764,12 +916,11 @@
   const messagesEl = document.getElementById('messages');
   const inputEl = document.getElementById('user-input');
   const sendBtn = document.getElementById('send');
-  const usernameEl = document.getElementById('username');
   const statusDot = document.getElementById('status-dot');
   const statusPill = document.getElementById('status-pill');
   const clearBtn = document.getElementById('clear-chat');
   const toggleMemoryBtn = document.getElementById('toggle-memory');
-  const memoryPanel = document.getElementById('memory-panel');
+  const sidePanel = document.getElementById('side-panel');
   const themeLightBtn = document.getElementById('theme-light');
   const themeDarkBtn = document.getElementById('theme-dark');
   const fileWarningEl = document.getElementById('file-warning');
@@ -784,6 +935,26 @@
   const stagedAttachmentEl = document.getElementById('staged-attachment');
   const stagedFilenameEl = document.getElementById('staged-filename');
   const stagedRemoveBtn = document.getElementById('staged-remove');
+
+  // --- Authentification ---
+  const authOverlay = document.getElementById('auth-overlay');
+  const authForm = document.getElementById('auth-form');
+  const authNameEl = document.getElementById('auth-name');
+  const authPasswordEl = document.getElementById('auth-password');
+  const authErrorEl = document.getElementById('auth-error');
+  const authSubmitBtn = document.getElementById('auth-submit');
+  const authTabLogin = document.getElementById('auth-tab-login');
+  const authTabSignup = document.getElementById('auth-tab-signup');
+  const userChip = document.getElementById('user-chip');
+  const userChipName = document.getElementById('user-chip-name');
+  const logoutBtn = document.getElementById('logout-btn');
+
+  // --- Onglets du panneau latéral ---
+  const tabMemoryBtn = document.getElementById('tab-memory');
+  const tabHistoryBtn = document.getElementById('tab-history');
+  const memorySection = document.getElementById('memory-section');
+  const historySection = document.getElementById('history-section');
+  const historyContentEl = document.getElementById('history-content');
 
   // URL fixe : ce frontend ne sert qu'un seul déploiement, pas besoin de champ éditable.
   const API_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
@@ -851,9 +1022,142 @@
     `).join('');
   }
 
-  // Persistance locale du nom d'utilisateur, pratique entre sessions
-  usernameEl.value = localStorage.getItem('ai_employee_username') || 'stanley';
-  usernameEl.addEventListener('change', () => localStorage.setItem('ai_employee_username', usernameEl.value));
+  // --- Panneau "Historique" : liste complète des échanges passés, stockée
+  // côté serveur (CockroachDB) — persiste au-delà de ce que le contexte du
+  // prompt utilise (limité aux 10 derniers tours pour ne pas gonfler chaque
+  // appel Claude). ---
+  function renderHistory(history) {
+    if (!history || history.length === 0) {
+      historyContentEl.className = 'mem-empty';
+      historyContentEl.textContent = "Aucun historique pour le moment.";
+      return;
+    }
+    historyContentEl.className = '';
+    historyContentEl.innerHTML = history.map((h) => {
+      const time = new Date(h.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="history-record role-${h.role}">
+          <span class="hist-role">${h.role === 'user' ? 'toi' : 'agent'}</span>
+          <span class="hist-time">${time}</span>
+          <div>${escapeHtml(h.content)}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function switchTab(tab) {
+    const showMemory = tab === 'memory';
+    tabMemoryBtn.classList.toggle('active', showMemory);
+    tabHistoryBtn.classList.toggle('active', !showMemory);
+    memorySection.classList.toggle('active', showMemory);
+    historySection.classList.toggle('active', !showMemory);
+  }
+  tabMemoryBtn.addEventListener('click', () => switchTab('memory'));
+  tabHistoryBtn.addEventListener('click', () => switchTab('history'));
+
+  // --- Session : jeton opaque émis par signup/login, stocké côté serveur
+  // (table sessions) — remplace le champ "nom" en clair d'avant, qui ne
+  // vérifiait rien. Persisté en localStorage pour rester connecté entre
+  // rechargements (compromis assumé : vulnérable en cas de XSS, acceptable
+  // pour une démo publique sans données sensibles réelles). ---
+  let session = null; // { user_id, name, token }
+
+  function saveSession(s) {
+    session = s;
+    localStorage.setItem('ai_employee_session', JSON.stringify(s));
+  }
+  function loadSession() {
+    try {
+      const raw = localStorage.getItem('ai_employee_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  function clearSession() {
+    session = null;
+    localStorage.removeItem('ai_employee_session');
+  }
+
+  function showAuthOverlay(show) {
+    authOverlay.classList.toggle('show', show);
+    userChip.style.display = show ? 'none' : 'flex';
+  }
+
+  // Plusieurs appels peuvent être en vol en même temps (ex: chargement initial
+  // + rafraîchissement juste après un message) — un numéro de séquence évite
+  // qu'une réponse plus ancienne, arrivée en retard, écrase un état plus récent.
+  let historyRequestSeq = 0;
+
+  async function loadHistory() {
+    const seq = ++historyRequestSeq;
+    try {
+      const res = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'history', session_token: session.token })
+      });
+      if (res.status === 401) { logout(); return; }
+      const data = await res.json();
+      if (seq !== historyRequestSeq) return; // une requête plus récente a déjà été lancée
+      if (res.ok && !data.error) renderHistory(data.history);
+    } catch {
+      // Réseau indisponible : l'historique n'est pas critique pour utiliser le chat.
+    }
+  }
+
+  function enterApp() {
+    userChipName.textContent = session.name;
+    showAuthOverlay(false);
+    resetChat();
+    loadHistory();
+  }
+
+  function logout() {
+    clearSession();
+    showAuthOverlay(true);
+    authNameEl.focus();
+  }
+  logoutBtn.addEventListener('click', logout);
+
+  let authMode = 'login';
+  function setAuthMode(mode) {
+    authMode = mode;
+    authTabLogin.classList.toggle('active', mode === 'login');
+    authTabSignup.classList.toggle('active', mode === 'signup');
+    authSubmitBtn.textContent = mode === 'login' ? 'Se connecter' : 'Créer le compte';
+    authErrorEl.textContent = '';
+  }
+  authTabLogin.addEventListener('click', () => setAuthMode('login'));
+  authTabSignup.addEventListener('click', () => setAuthMode('signup'));
+
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = authNameEl.value.trim();
+    const password = authPasswordEl.value;
+    authErrorEl.textContent = '';
+    authSubmitBtn.disabled = true;
+
+    try {
+      const res = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: authMode, name, password })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        authErrorEl.textContent = data.error || `Erreur (HTTP ${res.status})`;
+        return;
+      }
+      saveSession({ user_id: data.user_id, name: data.name, token: data.session_token });
+      authPasswordEl.value = '';
+      enterApp();
+    } catch (err) {
+      authErrorEl.textContent = `Impossible de contacter le serveur : ${err.message}`;
+    } finally {
+      authSubmitBtn.disabled = false;
+    }
+  });
 
   // L'endpoint est fixe : toujours "prêt", pas de configuration requise.
   statusDot.classList.add('online');
@@ -873,7 +1177,7 @@
     if (role === 'agent') {
       avatar.innerHTML = AGENT_AVATAR_SVG;
     } else {
-      avatar.textContent = (usernameEl.value.trim()[0] || 'U').toUpperCase();
+      avatar.textContent = ((session && session.name && session.name[0]) || 'U').toUpperCase();
     }
 
     const bubbleWrap = document.createElement('div');
@@ -1002,7 +1306,7 @@
     setStagedFile(null);
 
     const payload = {
-      user_name: usernameEl.value || 'anonymous',
+      session_token: session.token,
       message: message || `Voici le document "${file.name}". Résume-le et dis-moi ce qu'il contient.`
     };
 
@@ -1026,7 +1330,10 @@
       try { data = await res.json(); } catch { /* réponse non-JSON (ex: timeout API Gateway) */ }
       if (pendingRow) pendingRow.remove();
 
-      if (!res.ok || !data || data.error) {
+      if (res.status === 401) {
+        logout();
+        addSystemMessage("Session expirée — reconnecte-toi pour continuer.", true);
+      } else if (!res.ok || !data || data.error) {
         const reason = data && data.error ? data.error : `le serveur n'a pas répondu correctement (HTTP ${res.status})`;
         addMessage(`Erreur : ${reason}`, 'agent', true);
       } else {
@@ -1037,6 +1344,7 @@
           const truncNote = info.truncated ? ' (document tronqué — trop volumineux pour être indexé en entier)' : '';
           addSystemMessage(`📄 "${info.filename}" indexé — ${info.chunks_stored} passage(s) ajouté(s) à la mémoire vectorielle.${truncNote}`);
         }
+        loadHistory();
       }
     } catch (err) {
       if (pendingRow) pendingRow.remove();
@@ -1074,9 +1382,17 @@
     if (e.key === 'Escape' && clearModalOverlay.classList.contains('show')) clearModalOverlay.classList.remove('show');
   });
 
-  toggleMemoryBtn.addEventListener('click', () => memoryPanel.classList.toggle('open'));
+  toggleMemoryBtn.addEventListener('click', () => sidePanel.classList.toggle('open'));
 
-  resetChat();
+  // --- Démarrage : session existante et valide -> on entre directement,
+  // sinon écran de connexion/inscription. ---
+  const savedSession = loadSession();
+  if (savedSession && savedSession.token) {
+    session = savedSession;
+    enterApp();
+  } else {
+    showAuthOverlay(true);
+  }
 </script>
 
 </body>
