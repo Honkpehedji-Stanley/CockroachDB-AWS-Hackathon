@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Employee — Agentic Memory</title>
+<title>AI Employee — Suivi & Mémoire</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -694,7 +694,7 @@
   <span class="dot" id="status-dot"></span>
   <div class="title-block">
     <h1>AI Employee</h1>
-    <span class="tagline">agentic memory · CockroachDB × AWS</span>
+    <span class="tagline">agent de suivi · mémoire CockroachDB × AWS</span>
   </div>
   <span class="status-pill" id="status-pill">non configuré</span>
   <div class="theme-switch" role="group" aria-label="Choix du thème">
@@ -789,6 +789,10 @@
   const API_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
   const WELCOME = "Salut. Je suis un agent avec une mémoire persistante dans CockroachDB — idéal pour un suivi dans la durée : décris un symptôme, envoie-moi un compte-rendu d'examen, reviens dans plusieurs sessions, je m'en souviendrai encore.";
 
+  // Icône de l'agent : un tracé "activité" plutôt qu'une croix médicale —
+  // évoque le suivi sans se faire passer pour un symbole clinique officiel.
+  const AGENT_AVATAR_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>';
+
   // Avertit si la page est ouverte en double-clic (file://) : l'API rejette
   // silencieusement ces requêtes (Origin: null n'obtient aucun header CORS
   // depuis API Gateway), ce qui produit un "Failed to fetch" déroutant.
@@ -866,7 +870,11 @@
 
     const avatar = document.createElement('div');
     avatar.className = `avatar ${role}`;
-    avatar.textContent = role === 'user' ? (usernameEl.value.trim()[0] || 'U').toUpperCase() : '◆';
+    if (role === 'agent') {
+      avatar.innerHTML = AGENT_AVATAR_SVG;
+    } else {
+      avatar.textContent = (usernameEl.value.trim()[0] || 'U').toUpperCase();
+    }
 
     const bubbleWrap = document.createElement('div');
     bubbleWrap.className = 'msg-bubble';
@@ -908,7 +916,7 @@
     const row = document.createElement('div');
     row.className = 'msg-row agent';
     row.innerHTML = `
-      <div class="avatar agent">◆</div>
+      <div class="avatar agent">${AGENT_AVATAR_SVG}</div>
       <div class="msg-bubble">
         <div class="msg">
           <span class="typing-indicator"><span></span><span></span><span></span></span>
