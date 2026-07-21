@@ -29,13 +29,13 @@ MIN_PASSWORD_LENGTH = 8
 MAX_CHUNKS_WITH_MESSAGE = 24
 DOCUMENT_CONTEXT_CHARS = 6000  # texte brut injecté directement dans le prompt, pas juste indexé
 
-SYSTEM_PROMPT = """Tu es un assistant IA avec une mémoire persistante stockée dans CockroachDB.
-Utilise le contexte fourni (historique récent + souvenirs pertinents) pour répondre de façon
-personnalisée et cohérente avec les échanges précédents.
-Si un document est joint au message (section "Document joint"), base ta réponse en priorité
-sur son contenu plutôt que sur la recherche de souvenirs.
-Si tu as besoin d'inspecter le schéma de la base ou d'exécuter une requête de vérification,
-utilise les outils MCP mis à ta disposition."""
+SYSTEM_PROMPT = """You are an AI assistant with persistent memory stored in CockroachDB.
+Use the provided context (recent history + relevant memories) to answer in a way that is
+personalized and consistent with previous exchanges.
+If a document is attached to the message (the "Document attached to this message" section),
+base your answer primarily on its content rather than on memory search.
+If you need to inspect the database schema or run a verification query, use the MCP tools
+available to you."""
 
 
 def build_prompt_context(user_id: str, user_message: str, document_context: str | None = None) -> tuple[str, list[dict]]:
@@ -52,13 +52,13 @@ def build_prompt_context(user_id: str, user_message: str, document_context: str 
     similar = memory.search_similar_memories(user_id, query_embedding, top_k=5)
     memories_text = "\n".join(f"- {m['content']} (distance={m['distance']:.3f})" for m in similar)
 
-    document_block = f"## Document joint à ce message\n{document_context}\n\n" if document_context else ""
+    document_block = f"## Document attached to this message\n{document_context}\n\n" if document_context else ""
 
     context_block = (
         f"{document_block}"
-        f"## Historique récent\n{history_text or '(aucun)'}\n\n"
-        f"## Souvenirs pertinents\n{memories_text or '(aucun)'}\n\n"
-        f"## Message actuel\n{user_message}"
+        f"## Recent history\n{history_text or '(none)'}\n\n"
+        f"## Relevant memories\n{memories_text or '(none)'}\n\n"
+        f"## Current message\n{user_message}"
     )
     return context_block, similar
 
@@ -114,9 +114,9 @@ def _handle_signup(body: dict) -> dict:
     name = (body.get("name") or "").strip()
     password = body.get("password") or ""
     if len(name) < 2:
-        return _response(400, {"error": "Le nom doit faire au moins 2 caractères."})
+        return _response(400, {"error": "Name must be at least 2 characters."})
     if len(password) < MIN_PASSWORD_LENGTH:
-        return _response(400, {"error": f"Le mot de passe doit faire au moins {MIN_PASSWORD_LENGTH} caractères."})
+        return _response(400, {"error": f"Password must be at least {MIN_PASSWORD_LENGTH} characters."})
 
     try:
         user_id = memory.create_account(name, password)
@@ -165,17 +165,17 @@ def _handle_upload(body: dict) -> dict:
     file_b64 = body.get("file_base64")
 
     if not filename or not file_b64:
-        return _response(400, {"error": "Les champs 'filename' et 'file_base64' sont requis."})
+        return _response(400, {"error": "The 'filename' and 'file_base64' fields are required."})
     if not filename.lower().endswith(ALLOWED_UPLOAD_EXTENSIONS):
-        return _response(400, {"error": f"Extension non supportée. Formats acceptés : {', '.join(ALLOWED_UPLOAD_EXTENSIONS)}"})
+        return _response(400, {"error": f"Unsupported extension. Accepted formats: {', '.join(ALLOWED_UPLOAD_EXTENSIONS)}"})
 
     try:
         raw_bytes = base64.b64decode(file_b64)
     except Exception:
-        return _response(400, {"error": "file_base64 invalide (décodage échoué)."})
+        return _response(400, {"error": "Invalid file_base64 (decoding failed)."})
 
     if len(raw_bytes) > MAX_UPLOAD_BYTES:
-        return _response(400, {"error": f"Fichier trop volumineux (max {MAX_UPLOAD_BYTES // (1024 * 1024)} Mo)."})
+        return _response(400, {"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)."})
 
     key = f"{user_id}/{uuid.uuid4()}_{filename}"
     ingest.upload_bytes_to_s3(raw_bytes, key)
@@ -194,17 +194,17 @@ def _ingest_attachment_for_chat(user_id: str, attachment: dict) -> tuple[str, di
     file_b64 = attachment.get("file_base64")
 
     if not filename or not file_b64:
-        raise ValueError("Les champs 'filename' et 'file_base64' de la pièce jointe sont requis.")
+        raise ValueError("The attachment's 'filename' and 'file_base64' fields are required.")
     if not filename.lower().endswith(ALLOWED_UPLOAD_EXTENSIONS):
-        raise ValueError(f"Extension non supportée. Formats acceptés : {', '.join(ALLOWED_UPLOAD_EXTENSIONS)}")
+        raise ValueError(f"Unsupported extension. Accepted formats: {', '.join(ALLOWED_UPLOAD_EXTENSIONS)}")
 
     try:
         raw_bytes = base64.b64decode(file_b64)
     except Exception:
-        raise ValueError("file_base64 invalide (décodage échoué).")
+        raise ValueError("Invalid file_base64 (decoding failed).")
 
     if len(raw_bytes) > MAX_UPLOAD_BYTES:
-        raise ValueError(f"Fichier trop volumineux (max {MAX_UPLOAD_BYTES // (1024 * 1024)} Mo).")
+        raise ValueError(f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB).")
 
     key = f"{user_id}/{uuid.uuid4()}_{filename}"
     ingest.upload_bytes_to_s3(raw_bytes, key)
@@ -229,7 +229,7 @@ def _handle_chat(body: dict) -> dict:
     user_message = body.get("message")
     attachment = body.get("attachment")
     if not user_message:
-        return _response(400, {"error": "Le champ 'message' est requis."})
+        return _response(400, {"error": "The 'message' field is required."})
 
     document_context = None
     attachment_info = None
@@ -277,7 +277,7 @@ def lambda_handler(event, context):
         return _handle_chat(body)
     except Exception as exc:  # noqa: BLE001 — toujours répondre proprement au client
         print(f"[ERROR] {exc}")  # capté par CloudWatch Logs
-        return _response(500, {"error": "Une erreur interne est survenue. Réessaie dans un instant."})
+        return _response(500, {"error": "An internal error occurred. Please try again in a moment."})
 
 
 if __name__ == "__main__":

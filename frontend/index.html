@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Employee — Suivi & Mémoire</title>
+<title>Continuum — Follow-up & Memory</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -11,6 +11,8 @@
     --bg: #0a0e14;
     --bg-glow: radial-gradient(1200px 600px at 15% -10%, rgba(45, 212, 191, 0.10), transparent 60%),
                radial-gradient(900px 500px at 100% 10%, rgba(94, 129, 244, 0.08), transparent 55%);
+    --auth-glow: radial-gradient(900px 500px at 18% 15%, rgba(45, 212, 191, 0.20), transparent 60%),
+                 radial-gradient(800px 550px at 85% 85%, rgba(94, 129, 244, 0.18), transparent 60%);
     --panel: #10151d;
     --panel-raised: #141a23;
     --border: #1f2733;
@@ -34,6 +36,8 @@
     --bg: #f4f6f8;
     --bg-glow: radial-gradient(1200px 600px at 15% -10%, rgba(13, 148, 136, 0.08), transparent 60%),
                radial-gradient(900px 500px at 100% 10%, rgba(94, 129, 244, 0.06), transparent 55%);
+    --auth-glow: radial-gradient(900px 500px at 18% 15%, rgba(13, 148, 136, 0.16), transparent 60%),
+                 radial-gradient(800px 550px at 85% 85%, rgba(94, 129, 244, 0.13), transparent 60%);
     --panel: #ffffff;
     --panel-raised: #eef1f4;
     --border: #dde2e8;
@@ -57,6 +61,8 @@
       --bg: #f4f6f8;
       --bg-glow: radial-gradient(1200px 600px at 15% -10%, rgba(13, 148, 136, 0.08), transparent 60%),
                  radial-gradient(900px 500px at 100% 10%, rgba(94, 129, 244, 0.06), transparent 55%);
+      --auth-glow: radial-gradient(900px 500px at 18% 15%, rgba(13, 148, 136, 0.16), transparent 60%),
+                   radial-gradient(800px 550px at 85% 85%, rgba(94, 129, 244, 0.13), transparent 60%);
       --panel: #ffffff;
       --panel-raised: #eef1f4;
       --border: #dde2e8;
@@ -636,53 +642,54 @@
   }
   .modal-actions .btn-danger:hover { filter: brightness(1.1); }
 
-  /* --- Authentification --- */
+  /* --- Authentication --- */
   .auth-overlay {
     display: none;
     position: fixed;
     inset: 0;
     z-index: 100;
-    background: var(--bg-glow), var(--bg);
+    background: var(--auth-glow), var(--bg);
     align-items: center;
     justify-content: center;
+    padding: 24px;
   }
   .auth-overlay.show { display: flex; }
 
   .auth-card {
-    width: min(360px, 90vw);
+    width: min(440px, 92vw);
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 28px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    border-radius: 18px;
+    padding: 36px 40px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.3);
   }
 
   .auth-card h1 {
-    font-size: 18px;
-    margin: 0 0 2px;
+    font-size: 21px;
+    margin: 0 0 3px;
     font-weight: 700;
   }
   .auth-card .auth-tagline {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-size: 11.5px;
     color: var(--text-dim);
-    margin: 0 0 22px;
+    margin: 0 0 26px;
   }
 
   .auth-tabs {
     display: flex;
     border: 1px solid var(--border);
-    border-radius: 9px;
+    border-radius: 10px;
     overflow: hidden;
-    margin-bottom: 18px;
+    margin-bottom: 22px;
   }
   .auth-tabs button {
     flex: 1;
     background: transparent;
     border: none;
-    padding: 9px;
+    padding: 11px;
     font-family: inherit;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-dim);
     cursor: pointer;
@@ -697,52 +704,65 @@
     color: var(--text-faint);
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    margin: 12px 0 5px;
+    margin: 14px 0 6px;
   }
+  .auth-form label:first-of-type { margin-top: 0; }
   .auth-form input {
     width: 100%;
     background: var(--panel-raised);
     border: 1px solid var(--border);
     color: var(--text);
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 9px;
+    padding: 12px 14px;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 15px;
   }
   .auth-form input:focus { outline: none; border-color: var(--accent-dim); }
 
+  .password-field { position: relative; }
+  .password-field input { padding-right: 42px; }
+  .password-field button.toggle-password {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  .password-field button.toggle-password:hover { color: var(--accent-bright); }
+
   .auth-error {
     color: var(--danger);
-    font-size: 12px;
-    margin: 10px 0 0;
-    min-height: 14px;
+    font-size: 12.5px;
+    margin: 12px 0 0;
+    min-height: 15px;
+    line-height: 1.4;
   }
 
   .auth-form button[type="submit"] {
     width: 100%;
-    margin-top: 18px;
+    margin-top: 20px;
     background: linear-gradient(135deg, var(--accent), var(--accent-dim));
     color: #06201d;
     border: none;
-    border-radius: 9px;
-    padding: 11px;
+    border-radius: 10px;
+    padding: 13px;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 15px;
     cursor: pointer;
     transition: filter 0.15s;
   }
   .auth-form button[type="submit"]:hover:not(:disabled) { filter: brightness(1.1); }
   .auth-form button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  .auth-hint {
-    font-size: 11px;
-    color: var(--text-faint);
-    margin-top: 14px;
-    line-height: 1.5;
-    text-align: center;
-  }
-
-  /* --- Chip utilisateur (remplace le champ nom libre) --- */
+  /* --- User chip (replaces the old free-text name field) --- */
   .user-chip {
     display: flex;
     align-items: center;
@@ -767,7 +787,7 @@
   }
   .user-chip button#logout-btn:hover { color: var(--danger); background: var(--danger-bg); }
 
-  /* --- Onglets du panneau latéral (Mémoire / Historique) --- */
+  /* --- Side panel tabs (Memory / History) --- */
   .side-tabs {
     display: flex;
     gap: 4px;
@@ -813,67 +833,91 @@
 <header>
   <span class="dot" id="status-dot"></span>
   <div class="title-block">
-    <h1>AI Employee</h1>
-    <span class="tagline">agent de suivi · mémoire CockroachDB × AWS</span>
+    <h1>Continuum</h1>
+    <span class="tagline">follow-up agent · CockroachDB memory × AWS</span>
   </div>
-  <span class="status-pill" id="status-pill">non configuré</span>
-  <div class="theme-switch" role="group" aria-label="Choix du thème">
-    <button id="theme-light" data-theme-choice="light" title="Mode clair">
+  <span class="status-pill" id="status-pill">not configured</span>
+  <div class="theme-switch" role="group" aria-label="Theme">
+    <button id="theme-light" data-theme-choice="light" title="Light mode">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
     </button>
-    <button id="theme-dark" data-theme-choice="dark" title="Mode sombre">
+    <button id="theme-dark" data-theme-choice="dark" title="Dark mode">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
     </button>
   </div>
   <span class="user-chip" id="user-chip" style="display:none;">
     <span id="user-chip-name"></span>
-    <button id="logout-btn" title="Se déconnecter">
+    <button id="logout-btn" title="Log out">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
     </button>
   </span>
-  <button id="toggle-memory" title="Panneau mémoire">Mémoire</button>
-  <button id="clear-chat" title="Effacer la conversation">Effacer</button>
+  <button id="toggle-memory" title="Memory panel">Memory</button>
+  <button id="clear-chat" title="Clear conversation">Clear</button>
 </header>
 
 <div class="file-protocol-warning" id="file-warning">
-  ⚠ Cette page est ouverte en <code>file://</code> — l'API refusera les requêtes (CORS bloque l'origine "null"). Sers-la via un serveur local, ex : <code>cd frontend && python3 -m http.server 8080</code>, puis ouvre <code>http://localhost:8080</code>.
+  ⚠ This page is open via <code>file://</code> — the API will reject requests (CORS blocks the "null" origin). Serve it from a local server instead, e.g.: <code>cd frontend && python3 -m http.server 8080</code>, then open <code>http://localhost:8080</code>.
 </div>
 
 <div class="auth-overlay" id="auth-overlay">
   <div class="auth-card">
-    <h1>AI Employee</h1>
-    <p class="auth-tagline">agent de suivi · mémoire CockroachDB × AWS</p>
+    <h1>Continuum</h1>
+    <p class="auth-tagline">follow-up agent · CockroachDB memory × AWS</p>
     <div class="auth-tabs">
-      <button type="button" id="auth-tab-login" class="active">Connexion</button>
-      <button type="button" id="auth-tab-signup">Créer un compte</button>
+      <button type="button" id="auth-tab-login" class="active">Sign in</button>
+      <button type="button" id="auth-tab-signup">Create account</button>
     </div>
     <form id="auth-form" class="auth-form">
-      <label for="auth-name">Nom</label>
-      <input id="auth-name" type="text" autocomplete="username" required>
-      <label for="auth-password">Mot de passe</label>
-      <input id="auth-password" type="password" autocomplete="current-password" required minlength="8">
+      <div id="login-name-field">
+        <label for="auth-name">Full name</label>
+        <input id="auth-name" type="text" autocomplete="username">
+      </div>
+      <div id="signup-name-fields" style="display:none;">
+        <label for="auth-first-name">First name</label>
+        <input id="auth-first-name" type="text" autocomplete="given-name">
+        <label for="auth-last-name">Last name</label>
+        <input id="auth-last-name" type="text" autocomplete="family-name">
+      </div>
+
+      <label for="auth-password">Password</label>
+      <div class="password-field">
+        <input id="auth-password" type="password" autocomplete="current-password">
+        <button type="button" class="toggle-password" data-target="auth-password" title="Show password">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        </button>
+      </div>
+
+      <div id="signup-confirm-field" style="display:none;">
+        <label for="auth-confirm-password">Confirm password</label>
+        <div class="password-field">
+          <input id="auth-confirm-password" type="password" autocomplete="new-password">
+          <button type="button" class="toggle-password" data-target="auth-confirm-password" title="Show password">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
+      </div>
+
       <p class="auth-error" id="auth-error"></p>
-      <button type="submit" id="auth-submit">Se connecter</button>
+      <button type="submit" id="auth-submit">Sign in</button>
     </form>
-    <p class="auth-hint">Compte de démo — n'utilise pas un mot de passe que tu réemploies ailleurs.</p>
   </div>
 </div>
 
 <main>
   <aside id="side-panel">
     <div class="side-tabs">
-      <button type="button" id="tab-memory" class="active">Mémoire mobilisée</button>
-      <button type="button" id="tab-history">Historique</button>
+      <button type="button" id="tab-memory" class="active">Memory</button>
+      <button type="button" id="tab-history">History</button>
     </div>
 
     <div id="memory-section" class="side-panel-section active">
-      <p class="sub">Souvenirs (conversations passées et documents indexés) que la recherche vectorielle CockroachDB a retrouvés pour construire la dernière réponse, du plus au moins proche.</p>
-      <div id="mem-content" class="mem-empty">Aucun échange pour le moment.</div>
+      <p class="sub">Memories (past conversations and indexed documents) that CockroachDB's vector search retrieved to build the last response, closest match first.</p>
+      <div id="mem-content" class="mem-empty">No exchange yet.</div>
     </div>
 
     <div id="history-section" class="side-panel-section">
-      <p class="sub">Historique complet de tes conversations avec l'agent, stocké dans CockroachDB — persiste d'une session à l'autre.</p>
-      <div id="history-content" class="mem-empty">Aucun historique pour le moment.</div>
+      <p class="sub">Your full conversation history with the agent, stored in CockroachDB — persists across sessions.</p>
+      <div id="history-content" class="mem-empty">No history yet.</div>
     </div>
   </aside>
 
@@ -882,7 +926,7 @@
     <div id="staged-attachment" class="staged-attachment">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
       <span id="staged-filename"></span>
-      <button id="staged-remove" type="button" title="Retirer la pièce jointe">
+      <button id="staged-remove" type="button" title="Remove attachment">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     </div>
@@ -892,22 +936,22 @@
     </div>
     <div id="input-row">
       <input type="file" id="file-input" accept=".pdf,.txt,.md" hidden>
-      <button id="upload-btn" type="button" title="Envoyer un document (.pdf, .txt, .md) à l'agent">
+      <button id="upload-btn" type="button" title="Attach a document (.pdf, .txt, .md) for the agent">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
       </button>
-      <textarea id="user-input" rows="1" placeholder="Écris ton message... (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)"></textarea>
-      <button id="send">Envoyer</button>
+      <textarea id="user-input" rows="1" placeholder="Type your message... (Enter to send, Shift+Enter for a new line)"></textarea>
+      <button id="send">Send</button>
     </div>
   </div>
 </main>
 
 <div class="modal-overlay" id="clear-modal-overlay">
   <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="clear-modal-title">
-    <h3 id="clear-modal-title">Effacer la conversation ?</h3>
-    <p>Ça vide uniquement l'affichage de ce navigateur — rien n'est supprimé côté serveur, l'agent garde toute sa mémoire.</p>
+    <h3 id="clear-modal-title">Clear the conversation?</h3>
+    <p>This only clears what's shown in this browser — nothing is deleted server-side, the agent keeps its full memory.</p>
     <div class="modal-actions">
-      <button id="clear-modal-cancel" class="btn-ghost">Annuler</button>
-      <button id="clear-modal-confirm" class="btn-danger">Effacer</button>
+      <button id="clear-modal-cancel" class="btn-ghost">Cancel</button>
+      <button id="clear-modal-confirm" class="btn-danger">Clear</button>
     </div>
   </div>
 </div>
@@ -936,11 +980,17 @@
   const stagedFilenameEl = document.getElementById('staged-filename');
   const stagedRemoveBtn = document.getElementById('staged-remove');
 
-  // --- Authentification ---
+  // --- Authentication ---
   const authOverlay = document.getElementById('auth-overlay');
   const authForm = document.getElementById('auth-form');
+  const loginNameField = document.getElementById('login-name-field');
+  const signupNameFields = document.getElementById('signup-name-fields');
+  const signupConfirmField = document.getElementById('signup-confirm-field');
   const authNameEl = document.getElementById('auth-name');
+  const authFirstNameEl = document.getElementById('auth-first-name');
+  const authLastNameEl = document.getElementById('auth-last-name');
   const authPasswordEl = document.getElementById('auth-password');
+  const authConfirmPasswordEl = document.getElementById('auth-confirm-password');
   const authErrorEl = document.getElementById('auth-error');
   const authSubmitBtn = document.getElementById('auth-submit');
   const authTabLogin = document.getElementById('auth-tab-login');
@@ -949,28 +999,28 @@
   const userChipName = document.getElementById('user-chip-name');
   const logoutBtn = document.getElementById('logout-btn');
 
-  // --- Onglets du panneau latéral ---
+  // --- Side panel tabs ---
   const tabMemoryBtn = document.getElementById('tab-memory');
   const tabHistoryBtn = document.getElementById('tab-history');
   const memorySection = document.getElementById('memory-section');
   const historySection = document.getElementById('history-section');
   const historyContentEl = document.getElementById('history-content');
 
-  // URL fixe : ce frontend ne sert qu'un seul déploiement, pas besoin de champ éditable.
+  // Fixed URL: this frontend only ever talks to one deployment, no need for an editable field.
   const API_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
-  const WELCOME = "Salut. Je suis un agent avec une mémoire persistante dans CockroachDB — idéal pour un suivi dans la durée : décris un symptôme, envoie-moi un compte-rendu d'examen, reviens dans plusieurs sessions, je m'en souviendrai encore.";
+  const WELCOME = "Hi. I'm an agent with persistent memory in CockroachDB — built for long-term follow-up: describe a symptom, send me a lab report, come back in a future session, and I'll still remember.";
 
-  // Icône de l'agent : un tracé "activité" plutôt qu'une croix médicale —
-  // évoque le suivi sans se faire passer pour un symbole clinique officiel.
+  // Agent icon: an "activity" trace rather than a medical cross — evokes
+  // follow-up without posing as an official clinical symbol.
   const AGENT_AVATAR_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>';
 
-  // Avertit si la page est ouverte en double-clic (file://) : l'API rejette
-  // silencieusement ces requêtes (Origin: null n'obtient aucun header CORS
-  // depuis API Gateway), ce qui produit un "Failed to fetch" déroutant.
+  // Warn if the page is opened by double-clicking (file://): the API
+  // silently rejects these requests (Origin: null gets no CORS headers
+  // from API Gateway), which produces a confusing "Failed to fetch".
   if (location.protocol === 'file:') fileWarningEl.classList.add('show');
 
-  // --- Thème clair / sombre : deux boutons toujours visibles, celui actif est
-  // surligné, donc l'état courant est explicite (pas une icône ambiguë à deviner) ---
+  // --- Light / dark theme: two buttons always visible, the active one is
+  // highlighted, so the current state is explicit (no ambiguous icon to guess) ---
   function applyTheme(theme) {
     if (theme) document.documentElement.setAttribute('data-theme', theme);
     else document.documentElement.removeAttribute('data-theme');
@@ -980,11 +1030,11 @@
     themeLightBtn.setAttribute('aria-pressed', String(isLight));
     themeDarkBtn.setAttribute('aria-pressed', String(!isLight));
   }
-  applyTheme(localStorage.getItem('ai_employee_theme'));
-  themeLightBtn.addEventListener('click', () => { localStorage.setItem('ai_employee_theme', 'light'); applyTheme('light'); });
-  themeDarkBtn.addEventListener('click', () => { localStorage.setItem('ai_employee_theme', 'dark'); applyTheme('dark'); });
+  applyTheme(localStorage.getItem('continuum_theme'));
+  themeLightBtn.addEventListener('click', () => { localStorage.setItem('continuum_theme', 'light'); applyTheme('light'); });
+  themeDarkBtn.addEventListener('click', () => { localStorage.setItem('continuum_theme', 'dark'); applyTheme('dark'); });
 
-  // --- Rendu markdown minimal et sûr (échappe le HTML avant toute transformation) ---
+  // --- Minimal, safe markdown rendering (escapes HTML before any transformation) ---
   function escapeHtml(str) {
     return str.replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -1005,12 +1055,12 @@
     }).join('');
   }
 
-  // --- Panneau "Mémoire mobilisée" : affiche les souvenirs que la recherche
-  // vectorielle a retrouvés pour la dernière réponse (renvoyés par la Lambda) ---
+  // --- "Memory" panel: shows the memories the vector search retrieved for
+  // the last response (returned by the Lambda) ---
   function renderMemoryPanel(memoriesUsed) {
     if (!memoriesUsed || memoriesUsed.length === 0) {
       memContentEl.className = 'mem-empty';
-      memContentEl.textContent = "Aucun souvenir pertinent trouvé pour cette réponse.";
+      memContentEl.textContent = "No relevant memory found for this response.";
       return;
     }
     memContentEl.className = '';
@@ -1022,22 +1072,21 @@
     `).join('');
   }
 
-  // --- Panneau "Historique" : liste complète des échanges passés, stockée
-  // côté serveur (CockroachDB) — persiste au-delà de ce que le contexte du
-  // prompt utilise (limité aux 10 derniers tours pour ne pas gonfler chaque
-  // appel Claude). ---
+  // --- "History" panel: full list of past exchanges, stored server-side
+  // (CockroachDB) — goes beyond what the prompt context uses (capped at the
+  // last 10 turns so each Claude call doesn't balloon in size). ---
   function renderHistory(history) {
     if (!history || history.length === 0) {
       historyContentEl.className = 'mem-empty';
-      historyContentEl.textContent = "Aucun historique pour le moment.";
+      historyContentEl.textContent = "No history yet.";
       return;
     }
     historyContentEl.className = '';
     historyContentEl.innerHTML = history.map((h) => {
-      const time = new Date(h.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const time = new Date(h.created_at).toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       return `
         <div class="history-record role-${h.role}">
-          <span class="hist-role">${h.role === 'user' ? 'toi' : 'agent'}</span>
+          <span class="hist-role">${h.role === 'user' ? 'you' : 'agent'}</span>
           <span class="hist-time">${time}</span>
           <div>${escapeHtml(h.content)}</div>
         </div>
@@ -1055,20 +1104,20 @@
   tabMemoryBtn.addEventListener('click', () => switchTab('memory'));
   tabHistoryBtn.addEventListener('click', () => switchTab('history'));
 
-  // --- Session : jeton opaque émis par signup/login, stocké côté serveur
-  // (table sessions) — remplace le champ "nom" en clair d'avant, qui ne
-  // vérifiait rien. Persisté en localStorage pour rester connecté entre
-  // rechargements (compromis assumé : vulnérable en cas de XSS, acceptable
-  // pour une démo publique sans données sensibles réelles). ---
+  // --- Session: opaque token issued by signup/login, stored server-side
+  // (sessions table) — replaces the old plain-text "name" field, which
+  // verified nothing. Persisted in localStorage to stay signed in across
+  // reloads (accepted trade-off: vulnerable to XSS, fine for a public demo
+  // with no real sensitive data). ---
   let session = null; // { user_id, name, token }
 
   function saveSession(s) {
     session = s;
-    localStorage.setItem('ai_employee_session', JSON.stringify(s));
+    localStorage.setItem('continuum_session', JSON.stringify(s));
   }
   function loadSession() {
     try {
-      const raw = localStorage.getItem('ai_employee_session');
+      const raw = localStorage.getItem('continuum_session');
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
@@ -1076,7 +1125,7 @@
   }
   function clearSession() {
     session = null;
-    localStorage.removeItem('ai_employee_session');
+    localStorage.removeItem('continuum_session');
   }
 
   function showAuthOverlay(show) {
@@ -1084,9 +1133,9 @@
     userChip.style.display = show ? 'none' : 'flex';
   }
 
-  // Plusieurs appels peuvent être en vol en même temps (ex: chargement initial
-  // + rafraîchissement juste après un message) — un numéro de séquence évite
-  // qu'une réponse plus ancienne, arrivée en retard, écrase un état plus récent.
+  // Multiple calls can be in flight at once (e.g. initial load + refresh
+  // right after a message) — a sequence number stops a late, stale response
+  // from overwriting a more recent state.
   let historyRequestSeq = 0;
 
   async function loadHistory() {
@@ -1099,10 +1148,10 @@
       });
       if (res.status === 401) { logout(); return; }
       const data = await res.json();
-      if (seq !== historyRequestSeq) return; // une requête plus récente a déjà été lancée
+      if (seq !== historyRequestSeq) return; // a more recent request has already started
       if (res.ok && !data.error) renderHistory(data.history);
     } catch {
-      // Réseau indisponible : l'historique n'est pas critique pour utiliser le chat.
+      // Network unavailable: history isn't critical for using the chat.
     }
   }
 
@@ -1125,19 +1174,51 @@
     authMode = mode;
     authTabLogin.classList.toggle('active', mode === 'login');
     authTabSignup.classList.toggle('active', mode === 'signup');
-    authSubmitBtn.textContent = mode === 'login' ? 'Se connecter' : 'Créer le compte';
+    loginNameField.style.display = mode === 'login' ? 'block' : 'none';
+    signupNameFields.style.display = mode === 'signup' ? 'block' : 'none';
+    signupConfirmField.style.display = mode === 'signup' ? 'block' : 'none';
+    authPasswordEl.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    authSubmitBtn.textContent = mode === 'login' ? 'Sign in' : 'Create account';
     authErrorEl.textContent = '';
   }
   authTabLogin.addEventListener('click', () => setAuthMode('login'));
   authTabSignup.addEventListener('click', () => setAuthMode('signup'));
 
+  // --- Show/hide password toggle, shared by every password field ---
+  const EYE_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+  const EYE_OFF_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+
+  document.querySelectorAll('.toggle-password').forEach((btn) => {
+    const target = document.getElementById(btn.dataset.target);
+    btn.addEventListener('click', () => {
+      const showing = target.type === 'text';
+      target.type = showing ? 'password' : 'text';
+      btn.innerHTML = showing ? EYE_SVG : EYE_OFF_SVG;
+      btn.title = showing ? 'Show password' : 'Hide password';
+    });
+  });
+
   authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = authNameEl.value.trim();
-    const password = authPasswordEl.value;
     authErrorEl.textContent = '';
-    authSubmitBtn.disabled = true;
 
+    const password = authPasswordEl.value;
+    let name;
+
+    if (authMode === 'signup') {
+      const firstName = authFirstNameEl.value.trim();
+      const lastName = authLastNameEl.value.trim();
+      const confirmPassword = authConfirmPasswordEl.value;
+      if (!firstName || !lastName) { authErrorEl.textContent = 'First and last name are required.'; return; }
+      if (password.length < 8) { authErrorEl.textContent = 'Password must be at least 8 characters.'; return; }
+      if (password !== confirmPassword) { authErrorEl.textContent = 'Passwords do not match.'; return; }
+      name = `${firstName} ${lastName}`;
+    } else {
+      name = authNameEl.value.trim();
+      if (!name || !password) { authErrorEl.textContent = 'Please fill in all fields.'; return; }
+    }
+
+    authSubmitBtn.disabled = true;
     try {
       const res = await fetch(API_ENDPOINT, {
         method: 'POST',
@@ -1146,26 +1227,27 @@
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        authErrorEl.textContent = data.error || `Erreur (HTTP ${res.status})`;
+        authErrorEl.textContent = data.error || `Error (HTTP ${res.status})`;
         return;
       }
       saveSession({ user_id: data.user_id, name: data.name, token: data.session_token });
       authPasswordEl.value = '';
+      authConfirmPasswordEl.value = '';
       enterApp();
     } catch (err) {
-      authErrorEl.textContent = `Impossible de contacter le serveur : ${err.message}`;
+      authErrorEl.textContent = `Could not reach the server: ${err.message}`;
     } finally {
       authSubmitBtn.disabled = false;
     }
   });
 
-  // L'endpoint est fixe : toujours "prêt", pas de configuration requise.
+  // The endpoint is fixed: always "ready", no configuration needed.
   statusDot.classList.add('online');
   statusPill.classList.add('ready');
-  statusPill.textContent = 'prêt';
+  statusPill.textContent = 'ready';
 
   function formatTime() {
-    return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
   function addMessage(text, role, isError = false) {
@@ -1237,14 +1319,14 @@
     renderMemoryPanel([]);
   }
 
-  // --- Pièce jointe : choisir un fichier ne l'envoie pas tout de suite — il
-  // reste "en attente" (chip amovible) jusqu'à ce qu'on appuie sur Envoyer,
-  // comme sur ChatGPT/Claude. Il part alors avec le message dans la même
-  // requête, pour que l'agent le "voie" garanti pour cette réponse précise
-  // (pas seulement via la recherche vectorielle, trop générique pour un
-  // "résume-moi ce document"). Le document reste aussi indexé en mémoire
-  // long terme pour les questions futures.
-  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // doit rester cohérent avec agent/handler.py
+  // --- Attachment: picking a file doesn't send it right away — it stays
+  // "staged" (removable chip) until you hit Send, like ChatGPT/Claude. It
+  // then travels with the message in the same request, so the agent is
+  // guaranteed to "see" it for that specific response (not just through
+  // vector search, which is too generic for a "summarize this document"
+  // request). The document is also indexed into long-term memory for
+  // future questions.
+  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // must stay consistent with agent/handler.py
   const ALLOWED_UPLOAD_EXTENSIONS = ['.pdf', '.txt', '.md'];
   let stagedFile = null;
 
@@ -1278,16 +1360,16 @@
   uploadBtn.addEventListener('click', () => fileInputEl.click());
   fileInputEl.addEventListener('change', () => {
     const file = fileInputEl.files[0];
-    fileInputEl.value = ''; // permet de resélectionner le même fichier plus tard
+    fileInputEl.value = ''; // allows re-selecting the same file later
     if (!file) return;
 
     const lower = file.name.toLowerCase();
     if (!ALLOWED_UPLOAD_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
-      addSystemMessage(`"${file.name}" : format non supporté (${ALLOWED_UPLOAD_EXTENSIONS.join(', ')}).`, true);
+      addSystemMessage(`"${file.name}": unsupported format (${ALLOWED_UPLOAD_EXTENSIONS.join(', ')}).`, true);
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      addSystemMessage(`"${file.name}" dépasse la taille max (${(MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0)} Mo).`, true);
+      addSystemMessage(`"${file.name}" exceeds the max size (${(MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0)} MB).`, true);
       return;
     }
     setStagedFile(file);
@@ -1307,12 +1389,12 @@
 
     const payload = {
       session_token: session.token,
-      message: message || `Voici le document "${file.name}". Résume-le et dis-moi ce qu'il contient.`
+      message: message || `Here is the document "${file.name}". Summarize it and tell me what it contains.`
     };
 
     let pendingRow = null;
     if (file) {
-      setBusyState(true, `Lecture de "${file.name}" et préparation de la réponse...`);
+      setBusyState(true, `Reading "${file.name}" and preparing the response...`);
       payload.attachment = { filename: file.name, file_base64: await readFileAsBase64(file) };
     } else {
       sendBtn.disabled = true;
@@ -1327,28 +1409,28 @@
       });
 
       let data = null;
-      try { data = await res.json(); } catch { /* réponse non-JSON (ex: timeout API Gateway) */ }
+      try { data = await res.json(); } catch { /* non-JSON response (e.g. API Gateway timeout) */ }
       if (pendingRow) pendingRow.remove();
 
       if (res.status === 401) {
         logout();
-        addSystemMessage("Session expirée — reconnecte-toi pour continuer.", true);
+        addSystemMessage("Session expired — please sign in again.", true);
       } else if (!res.ok || !data || data.error) {
-        const reason = data && data.error ? data.error : `le serveur n'a pas répondu correctement (HTTP ${res.status})`;
-        addMessage(`Erreur : ${reason}`, 'agent', true);
+        const reason = data && data.error ? data.error : `the server did not respond correctly (HTTP ${res.status})`;
+        addMessage(`Error: ${reason}`, 'agent', true);
       } else {
         addMessage(data.reply, 'agent');
         renderMemoryPanel(data.memories_used);
         if (data.attachment_info) {
           const info = data.attachment_info;
-          const truncNote = info.truncated ? ' (document tronqué — trop volumineux pour être indexé en entier)' : '';
-          addSystemMessage(`📄 "${info.filename}" indexé — ${info.chunks_stored} passage(s) ajouté(s) à la mémoire vectorielle.${truncNote}`);
+          const truncNote = info.truncated ? ' (document truncated — too large to index in full)' : '';
+          addSystemMessage(`📄 "${info.filename}" indexed — ${info.chunks_stored} passage(s) added to vector memory.${truncNote}`);
         }
         loadHistory();
       }
     } catch (err) {
       if (pendingRow) pendingRow.remove();
-      addMessage(`Impossible de contacter l'agent : ${err.message}`, 'agent', true);
+      addMessage(`Could not reach the agent: ${err.message}`, 'agent', true);
     } finally {
       setBusyState(false);
       inputEl.focus();
@@ -1363,7 +1445,7 @@
     }
   });
 
-  // Auto-grow du textarea au fil de la saisie
+  // Auto-grow the textarea as the user types
   inputEl.addEventListener('input', () => {
     inputEl.style.height = 'auto';
     inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
@@ -1384,8 +1466,8 @@
 
   toggleMemoryBtn.addEventListener('click', () => sidePanel.classList.toggle('open'));
 
-  // --- Démarrage : session existante et valide -> on entre directement,
-  // sinon écran de connexion/inscription. ---
+  // --- Startup: valid existing session -> go straight into the app,
+  // otherwise show the sign-in/sign-up screen. ---
   const savedSession = loadSession();
   if (savedSession && savedSession.token) {
     session = savedSession;

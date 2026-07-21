@@ -66,7 +66,7 @@ def create_account(name: str, password: str) -> str:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT 1 FROM user_context WHERE name = %s", (name,))
         if cur.fetchone():
-            raise AuthError("Ce nom est déjà pris.")
+            raise AuthError("This name is already taken.")
         new_id = str(uuid.uuid4())
         cur.execute(
             "INSERT INTO user_context (user_id, name, password_hash) VALUES (%s, %s, %s)",
@@ -82,10 +82,10 @@ def verify_credentials(name: str, password: str) -> str:
         cur.execute("SELECT user_id, password_hash FROM user_context WHERE name = %s", (name,))
         row = cur.fetchone()
         if not row or not row[1]:
-            raise AuthError("Nom ou mot de passe incorrect.")
+            raise AuthError("Incorrect name or password.")
         user_id, password_hash = row
         if not bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8")):
-            raise AuthError("Nom ou mot de passe incorrect.")
+            raise AuthError("Incorrect name or password.")
         return str(user_id)
 
 
@@ -105,7 +105,7 @@ def create_session(user_id: str) -> str:
 def get_user_from_session(token: str) -> str:
     """Résout un jeton de session en user_id. Lève AuthError si absent/expiré."""
     if not token:
-        raise AuthError("Session manquante — merci de te reconnecter.")
+        raise AuthError("Missing session — please sign in again.")
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT user_id FROM sessions WHERE session_token = %s AND expires_at > now()",
@@ -113,7 +113,7 @@ def get_user_from_session(token: str) -> str:
         )
         row = cur.fetchone()
         if not row:
-            raise AuthError("Session expirée ou invalide — merci de te reconnecter.")
+            raise AuthError("Session expired or invalid — please sign in again.")
         return str(row[0])
 
 

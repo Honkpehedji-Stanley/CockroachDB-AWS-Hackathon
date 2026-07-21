@@ -1,4 +1,4 @@
-# AI Employee — Agentic Memory powered by CockroachDB & AWS
+# Continuum — Agentic Memory powered by CockroachDB & AWS
 
 > Un agent IA de production doté d'une mémoire persistante, distribuée et résiliente — construit pour le **CockroachDB × AWS Hackathon: Build with Agentic Memory**.
 
@@ -6,7 +6,7 @@
 
 Un patient en suivi médical répète son histoire à chaque échange : les symptômes déjà décrits, les résultats d'examens déjà envoyés, ce qui a déjà été essayé. Un chatbot classique aggrave ce problème — il oublie tout entre deux sessions, donc "je te réexplique" devient la norme plutôt que l'exception.
 
-**AI Employee** ne réinitialise jamais sa mémoire. Décris un symptôme aujourd'hui, envoie un compte-rendu d'examen la semaine prochaine, reviens dans un mois avec une question de suivi — l'agent retrouve exactement ce qui a été dit et lu, et construit sa réponse dessus. Précision importante : ce n'est **pas** un outil de diagnostic ou de traitement — c'est une couche de mémoire qui garde la continuité d'une conversation de suivi dans le temps, ce qui manque structurellement aux assistants IA classiques. La même architecture de mémoire se généralise à tout domaine où le contexte doit survivre entre plusieurs sessions (support client, suivi de projet, onboarding) — le suivi médical est le scénario qui la rend la plus concrète.
+**Continuum** ne réinitialise jamais sa mémoire. Décris un symptôme aujourd'hui, envoie un compte-rendu d'examen la semaine prochaine, reviens dans un mois avec une question de suivi — l'agent retrouve exactement ce qui a été dit et lu, et construit sa réponse dessus. Précision importante : ce n'est **pas** un outil de diagnostic ou de traitement — c'est une couche de mémoire qui garde la continuité d'une conversation de suivi dans le temps, ce qui manque structurellement aux assistants IA classiques. La même architecture de mémoire se généralise à tout domaine où le contexte doit survivre entre plusieurs sessions (support client, suivi de projet, onboarding) — le suivi médical est le scénario qui la rend la plus concrète.
 
 Ce projet utilise **CockroachDB** comme cerveau à long terme d'un agent IA déployé sur **AWS**, avec un raisonnement propulsé par **Amazon Bedrock**.
 
