@@ -193,7 +193,7 @@ Ouvre simplement `frontend/index.html` dans un navigateur, colle l'URL API Gatew
 
 ## 🎥 Démo
 
-- Lien démo fonctionnelle : *à venir*
+- Lien démo fonctionnelle : [honkpehedji-stanley.github.io/CockroachDB-AWS-Hackathon](https://honkpehedji-stanley.github.io/CockroachDB-AWS-Hackathon/)
 - Vidéo de présentation (< 3 min) : *à venir*
 
 ## 📜 Licence
