@@ -24,18 +24,43 @@ CREATE TABLE public.user_context (
 CREATE UNIQUE INDEX user_context_name_unique ON public.user_context (name);
 
 -- ------------------------------------------------------------
+-- Table : threads
+-- Rôle : une conversation distincte (façon ChatGPT/Claude) — regroupe
+-- les lignes de `conversations` qui partagent un même fil. Le titre est
+-- dérivé du premier message utilisateur (voir memory.touch_thread).
+-- ------------------------------------------------------------
+CREATE TABLE public.threads (
+    thread_id  UUID NOT NULL DEFAULT gen_random_uuid(),
+    user_id    UUID NOT NULL,
+    title      STRING NULL,
+    created_at TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
+    CONSTRAINT threads_pkey PRIMARY KEY (thread_id ASC),
+    CONSTRAINT threads_user_id_fkey FOREIGN KEY (user_id)
+        REFERENCES public.user_context (user_id)
+);
+
+-- ------------------------------------------------------------
 -- Table : conversations
--- Rôle : historique brut des échanges (rôle + contenu), par utilisateur
+-- Rôle : historique brut des échanges (rôle + contenu), par utilisateur,
+-- rattaché à un fil (thread_id) — le contexte envoyé au modèle
+-- (get_recent_conversations) est scopé au fil courant, alors que la
+-- recherche vectorielle (memory_embeddings) reste globale à l'utilisateur :
+-- l'agent peut donc rappeler un fait d'un tout autre fil via la mémoire
+-- sémantique, même si le contexte conversationnel, lui, est cloisonné.
 -- ------------------------------------------------------------
 CREATE TABLE public.conversations (
     conversation_id UUID NOT NULL DEFAULT gen_random_uuid(),
     user_id         UUID NULL,
+    thread_id       UUID NULL,
     "role"          STRING NOT NULL,
     content         STRING NOT NULL,
     created_at      TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
     CONSTRAINT conversations_pkey PRIMARY KEY (conversation_id ASC),
     CONSTRAINT conversations_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES public.user_context (user_id)
+        REFERENCES public.user_context (user_id),
+    CONSTRAINT conversations_thread_id_fkey FOREIGN KEY (thread_id)
+        REFERENCES public.threads (thread_id)
 );
 
 -- ------------------------------------------------------------

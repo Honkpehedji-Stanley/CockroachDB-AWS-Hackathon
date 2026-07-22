@@ -117,47 +117,115 @@ def get_user_from_session(token: str) -> str:
         return str(row[0])
 
 
-def get_conversation_history(user_id: str, limit: int = 200) -> list[dict]:
-    """Historique complet (jusqu'à `limit` messages), pour le panneau dédié du frontend —
-    distinct de get_recent_conversations() qui alimente le contexte du prompt (limité à 10)."""
+# ---------------------------------------------------------------------
+# Fils de discussion (threads) — une conversation distincte façon
+# ChatGPT/Claude. `get_recent_conversations` (contexte envoyé au modèle)
+# est scopé au fil courant ; la recherche vectorielle (search_similar_memories)
+# reste globale à l'utilisateur, donc l'agent peut rappeler un souvenir
+# d'un autre fil même si son contexte conversationnel, lui, est cloisonné.
+# ---------------------------------------------------------------------
+
+def create_thread(user_id: str) -> str:
+    thread_id = str(uuid.uuid4())
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO threads (thread_id, user_id) VALUES (%s, %s)",
+            (thread_id, user_id),
+        )
+        conn.commit()
+    return thread_id
+
+
+def verify_thread_owner(thread_id: str, user_id: str) -> bool:
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM threads WHERE thread_id = %s AND user_id = %s", (thread_id, user_id))
+        return cur.fetchone() is not None
+
+
+def list_threads(user_id: str, limit: int = 50) -> list[dict]:
     with get_connection() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT role, content, created_at
-            FROM conversations
+            SELECT thread_id, title, created_at, updated_at
+            FROM threads
             WHERE user_id = %s
-            ORDER BY created_at DESC
+            ORDER BY updated_at DESC
             LIMIT %s
             """,
             (user_id, limit),
         )
-        rows = cur.fetchall()
-        return list(reversed(rows))
+        return cur.fetchall()
 
 
-def get_recent_conversations(user_id: str, limit: int = 10) -> list[dict]:
+def touch_thread(thread_id: str, title_candidate: str) -> None:
+    """Met à jour `updated_at` (fait remonter le fil dans la liste) et fixe
+    le titre une seule fois, sur le tout premier message (COALESCE)."""
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE threads SET updated_at = now(), title = COALESCE(title, %s) WHERE thread_id = %s",
+            (title_candidate[:60], thread_id),
+        )
+        conn.commit()
+
+
+def get_thread_messages(user_id: str, thread_id: str, limit: int = 200) -> list[dict]:
+    with get_connection() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT conversation_id, role, content, created_at
+            FROM conversations
+            WHERE user_id = %s AND thread_id = %s
+            ORDER BY created_at ASC
+            LIMIT %s
+            """,
+            (user_id, thread_id, limit),
+        )
+        return cur.fetchall()
+
+
+def delete_messages_from(user_id: str, thread_id: str, from_conversation_id: str) -> None:
+    """Supprime un message et tout ce qui le suit dans le fil (édition d'un
+    message déjà envoyé = on retire l'ancien échange puis on rejoue depuis là)."""
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            DELETE FROM conversations
+            WHERE user_id = %s AND thread_id = %s
+              AND created_at >= (
+                  SELECT created_at FROM conversations
+                  WHERE conversation_id = %s AND user_id = %s AND thread_id = %s
+              )
+            """,
+            (user_id, thread_id, from_conversation_id, user_id, thread_id),
+        )
+        conn.commit()
+
+
+def get_recent_conversations(user_id: str, thread_id: str, limit: int = 10) -> list[dict]:
     with get_connection() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(
             """
             SELECT role, content, created_at
             FROM conversations
-            WHERE user_id = %s
+            WHERE user_id = %s AND thread_id = %s
             ORDER BY created_at DESC
             LIMIT %s
             """,
-            (user_id, limit),
+            (user_id, thread_id, limit),
         )
         rows = cur.fetchall()
         return list(reversed(rows))  # ordre chronologique
 
 
-def save_conversation(user_id: str, role: str, content: str) -> None:
+def save_conversation(user_id: str, role: str, content: str, thread_id: str) -> str:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO conversations (user_id, role, content) VALUES (%s, %s, %s)",
-            (user_id, role, content),
+            "INSERT INTO conversations (user_id, role, content, thread_id) VALUES (%s, %s, %s, %s) RETURNING conversation_id",
+            (user_id, role, content, thread_id),
         )
+        conversation_id = cur.fetchone()[0]
         conn.commit()
+        return str(conversation_id)
 
 
 def save_memory_embedding(

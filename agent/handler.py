@@ -38,14 +38,15 @@ If you need to inspect the database schema or run a verification query, use the 
 available to you."""
 
 
-def build_prompt_context(user_id: str, user_message: str, document_context: str | None = None) -> tuple[str, list[dict]]:
-    """Assemble l'historique récent + les souvenirs sémantiquement proches
-    (+ le texte d'un document tout juste joint au message, le cas échéant).
+def build_prompt_context(user_id: str, thread_id: str, user_message: str, document_context: str | None = None) -> tuple[str, list[dict]]:
+    """Assemble l'historique récent du fil courant + les souvenirs
+    sémantiquement proches, tous fils confondus (+ le texte d'un document
+    tout juste joint au message, le cas échéant).
 
     Retourne aussi la liste des souvenirs utilisés (pour affichage côté
     frontend — rend la recherche vectorielle visible, pas juste interne).
     """
-    recent = memory.get_recent_conversations(user_id, limit=10)
+    recent = memory.get_recent_conversations(user_id, thread_id, limit=10)
     history_text = "\n".join(f"[{r['role']}] {r['content']}" for r in recent)
 
     query_embedding = bedrock_client.generate_embedding(user_message)
@@ -63,8 +64,8 @@ def build_prompt_context(user_id: str, user_message: str, document_context: str 
     return context_block, similar
 
 
-def run_agent_turn(user_id: str, user_message: str, document_context: str | None = None) -> tuple[str, list[dict]]:
-    context_block, similar_memories = build_prompt_context(user_id, user_message, document_context)
+def run_agent_turn(user_id: str, thread_id: str, user_message: str, document_context: str | None = None) -> tuple[str, list[dict], str, str]:
+    context_block, similar_memories = build_prompt_context(user_id, thread_id, user_message, document_context)
     messages = [{"role": "user", "content": context_block}]
 
     # Anthropic tool schema (le format attendu par l'API Messages/Bedrock)
@@ -92,14 +93,15 @@ def run_agent_turn(user_id: str, user_message: str, document_context: str | None
 
     final_text = "".join(b["text"] for b in response["content"] if b["type"] == "text")
 
-    # Persistance de la mémoire : conversation + embedding
-    memory.save_conversation(user_id, "user", user_message)
-    memory.save_conversation(user_id, "assistant", final_text)
+    # Persistance de la mémoire : conversation (scopée au fil) + embedding (global)
+    user_conversation_id = memory.save_conversation(user_id, "user", user_message, thread_id)
+    assistant_conversation_id = memory.save_conversation(user_id, "assistant", final_text, thread_id)
+    memory.touch_thread(thread_id, title_candidate=user_message)
 
     embedding = bedrock_client.generate_embedding(f"{user_message}\n{final_text}")
     memory.save_memory_embedding(user_id, f"{user_message}\n{final_text}", embedding)
 
-    return final_text, similar_memories
+    return final_text, similar_memories, user_conversation_id, assistant_conversation_id
 
 
 def _response(status: int, payload: dict) -> dict:
@@ -140,17 +142,56 @@ def _handle_login(body: dict) -> dict:
     return _response(200, {"user_id": user_id, "name": name, "session_token": token})
 
 
-def _handle_history(body: dict) -> dict:
+def _handle_new_thread(body: dict) -> dict:
     try:
         user_id = memory.get_user_from_session(body.get("session_token"))
     except memory.AuthError as exc:
         return _response(401, {"error": str(exc)})
 
-    history = memory.get_conversation_history(user_id)
+    thread_id = memory.create_thread(user_id)
+    return _response(200, {"thread_id": thread_id})
+
+
+def _handle_list_threads(body: dict) -> dict:
+    try:
+        user_id = memory.get_user_from_session(body.get("session_token"))
+    except memory.AuthError as exc:
+        return _response(401, {"error": str(exc)})
+
+    threads = memory.list_threads(user_id)
     return _response(200, {
-        "history": [
-            {"role": h["role"], "content": h["content"], "created_at": h["created_at"].isoformat()}
-            for h in history
+        "threads": [
+            {
+                "thread_id": str(t["thread_id"]),
+                "title": t["title"],
+                "created_at": t["created_at"].isoformat(),
+                "updated_at": t["updated_at"].isoformat(),
+            }
+            for t in threads
+        ]
+    })
+
+
+def _handle_thread_messages(body: dict) -> dict:
+    try:
+        user_id = memory.get_user_from_session(body.get("session_token"))
+    except memory.AuthError as exc:
+        return _response(401, {"error": str(exc)})
+
+    thread_id = body.get("thread_id")
+    if not thread_id or not memory.verify_thread_owner(thread_id, user_id):
+        return _response(403, {"error": "This conversation does not exist or does not belong to you."})
+
+    messages = memory.get_thread_messages(user_id, thread_id)
+    return _response(200, {
+        "messages": [
+            {
+                "conversation_id": str(m["conversation_id"]),
+                "role": m["role"],
+                "content": m["content"],
+                "created_at": m["created_at"].isoformat(),
+            }
+            for m in messages
         ]
     })
 
@@ -220,12 +261,7 @@ def _ingest_attachment_for_chat(user_id: str, attachment: dict) -> tuple[str, di
     return document_context, attachment_info
 
 
-def _handle_chat(body: dict) -> dict:
-    try:
-        user_id = memory.get_user_from_session(body.get("session_token"))
-    except memory.AuthError as exc:
-        return _response(401, {"error": str(exc)})
-
+def _run_chat_turn(user_id: str, thread_id: str, body: dict) -> dict:
     user_message = body.get("message")
     attachment = body.get("attachment")
     if not user_message:
@@ -239,7 +275,9 @@ def _handle_chat(body: dict) -> dict:
         except ValueError as exc:
             return _response(400, {"error": str(exc)})
 
-    reply, similar_memories = run_agent_turn(user_id, user_message, document_context)
+    reply, similar_memories, user_message_id, assistant_message_id = run_agent_turn(
+        user_id, thread_id, user_message, document_context
+    )
 
     memories_used = [
         {
@@ -250,10 +288,53 @@ def _handle_chat(body: dict) -> dict:
         for m in similar_memories
     ]
 
-    payload = {"reply": reply, "user_id": user_id, "memories_used": memories_used}
+    payload = {
+        "reply": reply,
+        "user_id": user_id,
+        "thread_id": thread_id,
+        "user_message_id": user_message_id,
+        "assistant_message_id": assistant_message_id,
+        "memories_used": memories_used,
+    }
     if attachment_info:
         payload["attachment_info"] = attachment_info
     return _response(200, payload)
+
+
+def _handle_chat(body: dict) -> dict:
+    try:
+        user_id = memory.get_user_from_session(body.get("session_token"))
+    except memory.AuthError as exc:
+        return _response(401, {"error": str(exc)})
+
+    thread_id = body.get("thread_id")
+    if thread_id:
+        if not memory.verify_thread_owner(thread_id, user_id):
+            return _response(403, {"error": "This conversation does not exist or does not belong to you."})
+    else:
+        # Pas de fil fourni (ex. tout premier message) : on en ouvre un.
+        thread_id = memory.create_thread(user_id)
+
+    return _run_chat_turn(user_id, thread_id, body)
+
+
+def _handle_edit_message(body: dict) -> dict:
+    try:
+        user_id = memory.get_user_from_session(body.get("session_token"))
+    except memory.AuthError as exc:
+        return _response(401, {"error": str(exc)})
+
+    thread_id = body.get("thread_id")
+    conversation_id = body.get("conversation_id")
+    if not thread_id or not conversation_id or not body.get("message"):
+        return _response(400, {"error": "The 'thread_id', 'conversation_id' and 'message' fields are required."})
+    if not memory.verify_thread_owner(thread_id, user_id):
+        return _response(403, {"error": "This conversation does not exist or does not belong to you."})
+
+    # Édition d'un message déjà envoyé : on retire cet échange et tout ce
+    # qui suit dans le fil, puis on rejoue depuis là avec le texte modifié.
+    memory.delete_messages_from(user_id, thread_id, conversation_id)
+    return _run_chat_turn(user_id, thread_id, body)
 
 
 def lambda_handler(event, context):
@@ -270,8 +351,14 @@ def lambda_handler(event, context):
             return _handle_signup(body)
         if action == "login":
             return _handle_login(body)
-        if action == "history":
-            return _handle_history(body)
+        if action == "new_thread":
+            return _handle_new_thread(body)
+        if action == "list_threads":
+            return _handle_list_threads(body)
+        if action == "thread_messages":
+            return _handle_thread_messages(body)
+        if action == "edit_message":
+            return _handle_edit_message(body)
         if action == "upload":
             return _handle_upload(body)
         return _handle_chat(body)
@@ -285,5 +372,8 @@ if __name__ == "__main__":
     signup = lambda_handler({"action": "signup", "name": "stanley", "password": "test1234"}, None)
     print(signup)
     token = json.loads(signup["body"]).get("session_token")
-    test_event = {"session_token": token, "message": "Salut, tu te souviens de moi ?"}
-    print(lambda_handler(test_event, None))
+    chat1 = lambda_handler({"session_token": token, "message": "Salut, tu te souviens de moi ?"}, None)
+    print(chat1)
+    thread_id = json.loads(chat1["body"]).get("thread_id")
+    print(lambda_handler({"session_token": token, "thread_id": thread_id, "message": "Et là ?"}, None))
+    print(lambda_handler({"action": "list_threads", "session_token": token}, None))

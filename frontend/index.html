@@ -204,7 +204,10 @@
 
   header .status-pill.ready { color: var(--accent-bright); border-color: var(--accent-dim); }
 
-  header button#clear-chat {
+  header button#new-chat-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     background: transparent;
     border: 1px solid var(--border);
     color: var(--text-dim);
@@ -215,7 +218,7 @@
     cursor: pointer;
     transition: all 0.15s;
   }
-  header button#clear-chat:hover { border-color: var(--danger); color: var(--danger); }
+  header button#new-chat-btn:hover { border-color: var(--accent-dim); color: var(--accent-bright); }
 
   header button#toggle-memory {
     display: none;
@@ -565,83 +568,6 @@
     .msg-row { max-width: 90%; }
   }
 
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    z-index: 50;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(2px);
-  }
-
-  .modal-overlay.show {
-    display: flex;
-    animation: fade-in 0.15s ease-out;
-  }
-
-  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-
-  .modal {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 22px;
-    width: min(360px, 90vw);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-    animation: modal-rise 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
-  }
-
-  @keyframes modal-rise {
-    from { opacity: 0; transform: translateY(8px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
-
-  .modal h3 {
-    margin: 0 0 8px;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .modal p {
-    margin: 0 0 20px;
-    font-size: 13px;
-    line-height: 1.55;
-    color: var(--text-dim);
-  }
-
-  .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-
-  .modal-actions button {
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid var(--border);
-    transition: all 0.15s;
-  }
-
-  .modal-actions .btn-ghost {
-    background: transparent;
-    color: var(--text-dim);
-  }
-  .modal-actions .btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
-
-  .modal-actions .btn-danger {
-    background: var(--danger);
-    color: #2a0d0d;
-    border-color: var(--danger);
-  }
-  .modal-actions .btn-danger:hover { filter: brightness(1.1); }
-
   /* --- Authentication --- */
   .auth-overlay {
     display: none;
@@ -655,8 +581,69 @@
   }
   .auth-overlay.show { display: flex; }
 
+  .auth-shell {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    max-width: 960px;
+    width: 100%;
+  }
+
+  .auth-hero { flex: 1; min-width: 0; }
+
+  .auth-hero-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.4px;
+    color: var(--accent-bright);
+    border: 1px solid var(--accent-dim);
+    border-radius: 100px;
+    padding: 4px 12px;
+    margin-bottom: 18px;
+  }
+
+  .auth-hero h1 { font-size: 34px; margin: 0 0 10px; font-weight: 700; letter-spacing: -0.3px; }
+
+  .auth-hero-tagline {
+    font-size: 15.5px;
+    color: var(--text-dim);
+    line-height: 1.55;
+    margin: 0 0 22px;
+    max-width: 420px;
+  }
+
+  .auth-hero-points {
+    list-style: none;
+    margin: 0 0 22px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .auth-hero-points li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13.5px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .auth-hero-points li svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
+
+  .auth-hero-disclaimer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--text-faint);
+    line-height: 1.6;
+    border-left: 2px solid var(--border);
+    padding-left: 10px;
+    max-width: 400px;
+  }
+
   .auth-card {
-    width: min(440px, 92vw);
+    width: min(400px, 100%);
+    flex-shrink: 0;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 18px;
@@ -664,39 +651,29 @@
     box-shadow: 0 24px 70px rgba(0,0,0,0.3);
   }
 
-  .auth-card h1 {
-    font-size: 21px;
-    margin: 0 0 3px;
+  .auth-card h2 {
+    font-size: 20px;
+    margin: 0 0 24px;
     font-weight: 700;
   }
-  .auth-card .auth-tagline {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px;
-    color: var(--text-dim);
-    margin: 0 0 26px;
-  }
 
-  .auth-tabs {
-    display: flex;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 22px;
-  }
-  .auth-tabs button {
-    flex: 1;
-    background: transparent;
-    border: none;
-    padding: 11px;
-    font-family: inherit;
+  .auth-toggle {
+    text-align: center;
     font-size: 13px;
-    font-weight: 600;
     color: var(--text-dim);
-    cursor: pointer;
-    transition: all 0.15s;
+    margin: 18px 0 0;
   }
-  .auth-tabs button + button { border-left: 1px solid var(--border); }
-  .auth-tabs button.active { background: var(--accent-dim); color: #06201d; }
+  .auth-toggle a { color: var(--accent-bright); font-weight: 600; cursor: pointer; text-decoration: none; }
+  .auth-toggle a:hover { text-decoration: underline; }
+
+  @media (max-width: 820px) {
+    .auth-shell { flex-direction: column; gap: 28px; }
+    .auth-hero { text-align: center; }
+    .auth-hero-points { align-items: center; }
+    .auth-hero-points li { text-align: left; }
+    .auth-hero-disclaimer { margin: 0 auto; }
+    .auth-card { width: min(440px, 92vw); }
+  }
 
   .auth-form label {
     display: block;
@@ -811,21 +788,95 @@
   .side-panel-section { display: none; }
   .side-panel-section.active { display: block; }
 
-  .history-record {
+  /* --- Threads (History panel): one entry per distinct conversation,
+     ChatGPT/Claude-style, instead of a flat log of every message ever sent --- */
+  .thread-record {
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 9px 10px;
+    padding: 10px 12px;
     margin-bottom: 6px;
     background: var(--panel-raised);
+    cursor: pointer;
+    transition: all 0.15s;
   }
-  .history-record .hist-role {
-    color: var(--accent);
-    text-transform: uppercase;
-    font-size: 10px;
-    letter-spacing: 0.4px;
+  .thread-record:hover { border-color: var(--accent-dim); }
+  .thread-record.active { border-color: var(--accent); background: var(--panel); }
+  .thread-record .thread-title {
+    color: var(--text);
+    font-size: 12px;
+    font-family: 'Space Grotesk', sans-serif;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .history-record.role-assistant .hist-role { color: var(--accent-bright); }
-  .history-record .hist-time { color: var(--text-faint); font-size: 10px; float: right; }
+  .thread-record .thread-time { color: var(--text-faint); font-size: 10px; }
+
+  /* --- Per-message actions (copy / edit), revealed on hover --- */
+  .msg-meta { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .msg-row.user .msg-meta { justify-content: flex-end; }
+  .msg-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+  .msg-row:hover .msg-actions, .msg-row:focus-within .msg-actions { opacity: 1; }
+  .msg-action-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-faint);
+    border-radius: 6px;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: all 0.15s;
+  }
+  .msg-action-btn:hover { color: var(--accent-bright); border-color: var(--accent-dim); }
+  .msg-action-btn.copied { color: var(--accent-bright); border-color: var(--accent-dim); }
+
+  .retry-btn {
+    align-self: flex-start;
+    margin-top: 6px;
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .retry-btn:hover { background: var(--danger-bg); }
+
+  /* --- Inline message editing (replaces the bubble with a textarea) --- */
+  .edit-wrap { display: flex; flex-direction: column; gap: 8px; }
+  .edit-textarea {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--accent-dim);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14.5px;
+    line-height: 1.55;
+    resize: none;
+  }
+  .edit-textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12); }
+  .edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .edit-actions button {
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .edit-cancel-btn { background: transparent; color: var(--text-dim); }
+  .edit-cancel-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .edit-save-btn { background: linear-gradient(135deg, var(--accent), var(--accent-dim)); color: #06201d; border: none; }
+  .edit-save-btn:hover { filter: brightness(1.1); }
 </style>
 </head>
 <body>
@@ -852,7 +903,10 @@
     </button>
   </span>
   <button id="toggle-memory" title="Memory panel">Memory</button>
-  <button id="clear-chat" title="Clear conversation">Clear</button>
+  <button id="new-chat-btn" title="Start a new conversation">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    New chat
+  </button>
 </header>
 
 <div class="file-protocol-warning" id="file-warning">
@@ -860,46 +914,65 @@
 </div>
 
 <div class="auth-overlay" id="auth-overlay">
-  <div class="auth-card">
-    <h1>Continuum</h1>
-    <p class="auth-tagline">follow-up agent · CockroachDB memory × AWS</p>
-    <div class="auth-tabs">
-      <button type="button" id="auth-tab-login" class="active">Sign in</button>
-      <button type="button" id="auth-tab-signup">Create account</button>
+  <div class="auth-shell">
+    <div class="auth-hero">
+      <span class="auth-hero-badge">CockroachDB × AWS Hackathon</span>
+      <h1>Continuum</h1>
+      <p class="auth-hero-tagline">A follow-up agent with persistent memory: describe a symptom, send a lab report, come back in a future session — it still remembers.</p>
+      <ul class="auth-hero-points">
+        <li>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Every conversation and document is stored in CockroachDB and persists across sessions.</span>
+        </li>
+        <li>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Vector search over your history grounds every reply in what you've actually told it before.</span>
+        </li>
+        <li>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Built for long-term follow-up, not one-off chats.</span>
+        </li>
+      </ul>
+      <p class="auth-hero-disclaimer">Not a diagnostic or treatment tool — a memory layer for following up over time.</p>
     </div>
-    <form id="auth-form" class="auth-form">
-      <div id="login-name-field">
-        <label for="auth-name">Full name</label>
-        <input id="auth-name" type="text" autocomplete="username">
-      </div>
-      <div id="signup-name-fields" style="display:none;">
-        <label for="auth-first-name">First name</label>
-        <input id="auth-first-name" type="text" autocomplete="given-name">
-        <label for="auth-last-name">Last name</label>
-        <input id="auth-last-name" type="text" autocomplete="family-name">
-      </div>
 
-      <label for="auth-password">Password</label>
-      <div class="password-field">
-        <input id="auth-password" type="password" autocomplete="current-password">
-        <button type="button" class="toggle-password" data-target="auth-password" title="Show password">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-        </button>
-      </div>
+    <div class="auth-card">
+      <h2 id="auth-card-heading">Sign in</h2>
+      <form id="auth-form" class="auth-form">
+        <div id="login-name-field">
+          <label for="auth-name">Full name</label>
+          <input id="auth-name" type="text" autocomplete="username">
+        </div>
+        <div id="signup-name-fields" style="display:none;">
+          <label for="auth-first-name">First name</label>
+          <input id="auth-first-name" type="text" autocomplete="given-name">
+          <label for="auth-last-name">Last name</label>
+          <input id="auth-last-name" type="text" autocomplete="family-name">
+        </div>
 
-      <div id="signup-confirm-field" style="display:none;">
-        <label for="auth-confirm-password">Confirm password</label>
+        <label for="auth-password">Password</label>
         <div class="password-field">
-          <input id="auth-confirm-password" type="password" autocomplete="new-password">
-          <button type="button" class="toggle-password" data-target="auth-confirm-password" title="Show password">
+          <input id="auth-password" type="password" autocomplete="current-password">
+          <button type="button" class="toggle-password" data-target="auth-password" title="Show password">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </button>
         </div>
-      </div>
 
-      <p class="auth-error" id="auth-error"></p>
-      <button type="submit" id="auth-submit">Sign in</button>
-    </form>
+        <div id="signup-confirm-field" style="display:none;">
+          <label for="auth-confirm-password">Confirm password</label>
+          <div class="password-field">
+            <input id="auth-confirm-password" type="password" autocomplete="new-password">
+            <button type="button" class="toggle-password" data-target="auth-confirm-password" title="Show password">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
+        <p class="auth-error" id="auth-error"></p>
+        <button type="submit" id="auth-submit">Sign in</button>
+      </form>
+      <p class="auth-toggle"><span id="auth-toggle-text">Don't have an account?</span> <a href="#" id="auth-toggle-link">Sign up</a></p>
+    </div>
   </div>
 </div>
 
@@ -916,8 +989,8 @@
     </div>
 
     <div id="history-section" class="side-panel-section">
-      <p class="sub">Your full conversation history with the agent, stored in CockroachDB — persists across sessions.</p>
-      <div id="history-content" class="mem-empty">No history yet.</div>
+      <p class="sub">Every conversation is saved as its own thread in CockroachDB — click one to reopen it.</p>
+      <div id="history-content" class="mem-empty">No conversations yet.</div>
     </div>
   </aside>
 
@@ -945,32 +1018,18 @@
   </div>
 </main>
 
-<div class="modal-overlay" id="clear-modal-overlay">
-  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="clear-modal-title">
-    <h3 id="clear-modal-title">Clear the conversation?</h3>
-    <p>This only clears what's shown in this browser — nothing is deleted server-side, the agent keeps its full memory.</p>
-    <div class="modal-actions">
-      <button id="clear-modal-cancel" class="btn-ghost">Cancel</button>
-      <button id="clear-modal-confirm" class="btn-danger">Clear</button>
-    </div>
-  </div>
-</div>
-
 <script>
   const messagesEl = document.getElementById('messages');
   const inputEl = document.getElementById('user-input');
   const sendBtn = document.getElementById('send');
   const statusDot = document.getElementById('status-dot');
   const statusPill = document.getElementById('status-pill');
-  const clearBtn = document.getElementById('clear-chat');
+  const newChatBtn = document.getElementById('new-chat-btn');
   const toggleMemoryBtn = document.getElementById('toggle-memory');
   const sidePanel = document.getElementById('side-panel');
   const themeLightBtn = document.getElementById('theme-light');
   const themeDarkBtn = document.getElementById('theme-dark');
   const fileWarningEl = document.getElementById('file-warning');
-  const clearModalOverlay = document.getElementById('clear-modal-overlay');
-  const clearModalCancel = document.getElementById('clear-modal-cancel');
-  const clearModalConfirm = document.getElementById('clear-modal-confirm');
   const fileInputEl = document.getElementById('file-input');
   const uploadBtn = document.getElementById('upload-btn');
   const memContentEl = document.getElementById('mem-content');
@@ -993,8 +1052,9 @@
   const authConfirmPasswordEl = document.getElementById('auth-confirm-password');
   const authErrorEl = document.getElementById('auth-error');
   const authSubmitBtn = document.getElementById('auth-submit');
-  const authTabLogin = document.getElementById('auth-tab-login');
-  const authTabSignup = document.getElementById('auth-tab-signup');
+  const authCardHeading = document.getElementById('auth-card-heading');
+  const authToggleText = document.getElementById('auth-toggle-text');
+  const authToggleLink = document.getElementById('auth-toggle-link');
   const userChip = document.getElementById('user-chip');
   const userChipName = document.getElementById('user-chip-name');
   const logoutBtn = document.getElementById('logout-btn');
@@ -1013,6 +1073,11 @@
   // Agent icon: an "activity" trace rather than a medical cross — evokes
   // follow-up without posing as an official clinical symbol.
   const AGENT_AVATAR_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>';
+
+  // Per-message action icons (copy / edit / copied-confirmation)
+  const COPY_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+  const CHECK_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+  const EDIT_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
 
   // Warn if the page is opened by double-clicking (file://): the API
   // silently rejects these requests (Origin: null gets no CORS headers
@@ -1072,26 +1137,33 @@
     `).join('');
   }
 
-  // --- "History" panel: full list of past exchanges, stored server-side
-  // (CockroachDB) — goes beyond what the prompt context uses (capped at the
-  // last 10 turns so each Claude call doesn't balloon in size). ---
-  function renderHistory(history) {
-    if (!history || history.length === 0) {
+  // --- "History" panel: one entry per distinct conversation (thread),
+  // ChatGPT/Claude-style — click one to reopen it. Each thread's own
+  // context (get_recent_conversations) is scoped server-side to that
+  // thread; vector-search memory (the Memory tab) stays global, so the
+  // agent can still recall something from a different thread. ---
+  let threadsCache = [];
+
+  function renderThreadList() {
+    if (!threadsCache || threadsCache.length === 0) {
       historyContentEl.className = 'mem-empty';
-      historyContentEl.textContent = "No history yet.";
+      historyContentEl.textContent = "No conversations yet.";
       return;
     }
     historyContentEl.className = '';
-    historyContentEl.innerHTML = history.map((h) => {
-      const time = new Date(h.created_at).toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    historyContentEl.innerHTML = threadsCache.map((t) => {
+      const time = new Date(t.updated_at).toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const active = t.thread_id === currentThreadId ? ' active' : '';
       return `
-        <div class="history-record role-${h.role}">
-          <span class="hist-role">${h.role === 'user' ? 'you' : 'agent'}</span>
-          <span class="hist-time">${time}</span>
-          <div>${escapeHtml(h.content)}</div>
+        <div class="thread-record${active}" data-thread-id="${t.thread_id}">
+          <div class="thread-title">${escapeHtml(t.title || 'New conversation')}</div>
+          <div class="thread-time">${time}</div>
         </div>
       `;
     }).join('');
+    historyContentEl.querySelectorAll('.thread-record').forEach((el) => {
+      el.addEventListener('click', () => openThread(el.dataset.threadId));
+    });
   }
 
   function switchTab(tab) {
@@ -1100,6 +1172,7 @@
     tabHistoryBtn.classList.toggle('active', !showMemory);
     memorySection.classList.toggle('active', showMemory);
     historySection.classList.toggle('active', !showMemory);
+    if (!showMemory) loadThreadList();
   }
   tabMemoryBtn.addEventListener('click', () => switchTab('memory'));
   tabHistoryBtn.addEventListener('click', () => switchTab('history'));
@@ -1110,6 +1183,7 @@
   // reloads (accepted trade-off: vulnerable to XSS, fine for a public demo
   // with no real sensitive data). ---
   let session = null; // { user_id, name, token }
+  let currentThreadId = null; // null = a fresh thread will be created on the first message sent
 
   function saveSession(s) {
     session = s;
@@ -1133,37 +1207,48 @@
     userChip.style.display = show ? 'none' : 'flex';
   }
 
-  // Multiple calls can be in flight at once (e.g. initial load + refresh
-  // right after a message) — a sequence number stops a late, stale response
-  // from overwriting a more recent state.
-  let historyRequestSeq = 0;
+  // Helper for every authenticated POST to the API. `action` is omitted for
+  // plain chat turns (the Lambda's default route). A sequence number on the
+  // caller's side (see loadThreadList) guards against a late response
+  // overwriting a more recent one when multiple calls overlap.
+  async function postAction(action, extra = {}) {
+    const body = { session_token: session.token, ...extra };
+    if (action) body.action = action;
+    const res = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    let data = null;
+    try { data = await res.json(); } catch { /* non-JSON response (e.g. gateway timeout) */ }
+    return { res, data };
+  }
 
-  async function loadHistory() {
-    const seq = ++historyRequestSeq;
+  let threadListRequestSeq = 0;
+
+  async function loadThreadList() {
+    const seq = ++threadListRequestSeq;
     try {
-      const res = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'history', session_token: session.token })
-      });
+      const { res, data } = await postAction('list_threads');
       if (res.status === 401) { logout(); return; }
-      const data = await res.json();
-      if (seq !== historyRequestSeq) return; // a more recent request has already started
-      if (res.ok && !data.error) renderHistory(data.history);
+      if (seq !== threadListRequestSeq) return; // a more recent request has already started
+      if (res.ok && data && !data.error) { threadsCache = data.threads; renderThreadList(); }
     } catch {
-      // Network unavailable: history isn't critical for using the chat.
+      // Network unavailable: the thread list isn't critical for using the chat.
     }
   }
 
   function enterApp() {
     userChipName.textContent = session.name;
     showAuthOverlay(false);
-    resetChat();
-    loadHistory();
+    startNewThread();
+    loadThreadList();
   }
 
   function logout() {
     clearSession();
+    currentThreadId = null;
+    threadsCache = [];
     showAuthOverlay(true);
     authNameEl.focus();
   }
@@ -1172,17 +1257,20 @@
   let authMode = 'login';
   function setAuthMode(mode) {
     authMode = mode;
-    authTabLogin.classList.toggle('active', mode === 'login');
-    authTabSignup.classList.toggle('active', mode === 'signup');
     loginNameField.style.display = mode === 'login' ? 'block' : 'none';
     signupNameFields.style.display = mode === 'signup' ? 'block' : 'none';
     signupConfirmField.style.display = mode === 'signup' ? 'block' : 'none';
     authPasswordEl.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
     authSubmitBtn.textContent = mode === 'login' ? 'Sign in' : 'Create account';
+    authCardHeading.textContent = mode === 'login' ? 'Sign in' : 'Create your account';
+    authToggleText.textContent = mode === 'login' ? "Don't have an account?" : 'Already have an account?';
+    authToggleLink.textContent = mode === 'login' ? 'Sign up' : 'Sign in';
     authErrorEl.textContent = '';
   }
-  authTabLogin.addEventListener('click', () => setAuthMode('login'));
-  authTabSignup.addEventListener('click', () => setAuthMode('signup'));
+  authToggleLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    setAuthMode(authMode === 'login' ? 'signup' : 'login');
+  });
 
   // --- Show/hide password toggle, shared by every password field ---
   const EYE_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
@@ -1225,9 +1313,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: authMode, name, password })
       });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        authErrorEl.textContent = data.error || `Error (HTTP ${res.status})`;
+      let data = null;
+      try { data = await res.json(); } catch { /* non-JSON response */ }
+      if (!res.ok || !data || data.error) {
+        authErrorEl.textContent = (data && data.error) || `Error (HTTP ${res.status})`;
         return;
       }
       saveSession({ user_id: data.user_id, name: data.name, token: data.session_token });
@@ -1250,9 +1339,20 @@
     return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
-  function addMessage(text, role, isError = false) {
+  function copyMessageText(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const original = btn.innerHTML;
+      btn.innerHTML = CHECK_SVG;
+      btn.classList.add('copied');
+      setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copied'); }, 1400);
+    }).catch(() => addSystemMessage('Could not copy to clipboard.', true));
+  }
+
+  function addMessage(text, role, opts = {}) {
+    const { isError = false, conversationId = null } = opts;
     const row = document.createElement('div');
     row.className = `msg-row ${role}`;
+    if (conversationId) row.dataset.conversationId = conversationId;
 
     const avatar = document.createElement('div');
     avatar.className = `avatar ${role}`;
@@ -1273,17 +1373,119 @@
       bubble.textContent = text;
     }
 
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+
     const time = document.createElement('div');
     time.className = 'msg-time';
     time.textContent = formatTime();
+    meta.appendChild(time);
+
+    if (!isError) {
+      const actions = document.createElement('div');
+      actions.className = 'msg-actions';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'msg-action-btn copy-btn';
+      copyBtn.title = 'Copy';
+      copyBtn.innerHTML = COPY_SVG;
+      copyBtn.addEventListener('click', () => copyMessageText(text, copyBtn));
+      actions.appendChild(copyBtn);
+
+      if (role === 'user' && conversationId) {
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'msg-action-btn edit-btn';
+        editBtn.title = 'Edit';
+        editBtn.innerHTML = EDIT_SVG;
+        editBtn.addEventListener('click', () => startEditMessage(row, conversationId, text));
+        actions.appendChild(editBtn);
+      }
+
+      meta.appendChild(actions);
+    }
 
     bubbleWrap.appendChild(bubble);
-    bubbleWrap.appendChild(time);
+    bubbleWrap.appendChild(meta);
     row.appendChild(avatar);
     row.appendChild(bubbleWrap);
     messagesEl.appendChild(row);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     return { row, bubble };
+  }
+
+  // Called once a just-sent user message gets its server-assigned
+  // conversation_id back (needed to make it editable — it isn't known
+  // until the chat/edit_message response comes in).
+  function attachConversationId(row, conversationId, text) {
+    if (!row || row.dataset.conversationId) return;
+    row.dataset.conversationId = conversationId;
+    const actions = row.querySelector('.msg-actions');
+    if (!actions) return;
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'msg-action-btn edit-btn';
+    editBtn.title = 'Edit';
+    editBtn.innerHTML = EDIT_SVG;
+    editBtn.addEventListener('click', () => startEditMessage(row, conversationId, text));
+    actions.appendChild(editBtn);
+  }
+
+  // --- Inline editing: replace the bubble with a textarea; saving removes
+  // this message and everything after it (server-side too, via
+  // action=edit_message), then replays from there with the new text —
+  // same semantics as ChatGPT/Claude's "edit and resubmit". ---
+  function startEditMessage(row, conversationId, currentText) {
+    if (row.querySelector('.edit-wrap')) return;
+    const bubble = row.querySelector('.msg');
+    bubble.style.display = 'none';
+
+    const editWrap = document.createElement('div');
+    editWrap.className = 'edit-wrap';
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'edit-textarea';
+    textarea.value = currentText;
+    textarea.rows = 2;
+
+    const actionsRow = document.createElement('div');
+    actionsRow.className = 'edit-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'edit-cancel-btn';
+    cancelBtn.textContent = 'Cancel';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'edit-save-btn';
+    saveBtn.textContent = 'Save & submit';
+
+    cancelBtn.addEventListener('click', () => { editWrap.remove(); bubble.style.display = ''; });
+    saveBtn.addEventListener('click', () => {
+      const newText = textarea.value.trim();
+      if (!newText) return;
+      submitEdit(row, conversationId, newText);
+    });
+
+    editWrap.appendChild(textarea);
+    actionsRow.appendChild(cancelBtn);
+    actionsRow.appendChild(saveBtn);
+    editWrap.appendChild(actionsRow);
+    bubble.after(editWrap);
+    textarea.focus();
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+  }
+
+  function submitEdit(row, conversationId, newText) {
+    let node = row;
+    while (node) {
+      const next = node.nextSibling;
+      node.remove();
+      node = next;
+    }
+    addMessage(newText, 'user');
+    runTurn({ message: newText, file: null, editConversationId: conversationId });
   }
 
   function addSystemMessage(text, isError = false) {
@@ -1313,10 +1515,37 @@
     return row;
   }
 
-  function resetChat() {
+  // --- Threads: "New chat" opens a blank conversation (the actual thread
+  // row is created server-side lazily, on the first message sent).
+  // Clicking a past thread in the History tab reloads its messages. ---
+  function startNewThread() {
+    currentThreadId = null;
     messagesEl.innerHTML = '';
     addMessage(WELCOME, 'agent');
     renderMemoryPanel([]);
+    renderThreadList();
+  }
+
+  async function openThread(threadId) {
+    if (threadId === currentThreadId) return;
+    const { res, data } = await postAction('thread_messages', { thread_id: threadId });
+    if (res.status === 401) { logout(); return; }
+    if (!res.ok || !data || data.error) {
+      addSystemMessage((data && data.error) || 'Could not load this conversation.', true);
+      return;
+    }
+    currentThreadId = threadId;
+    messagesEl.innerHTML = '';
+    if (data.messages.length === 0) {
+      addMessage(WELCOME, 'agent');
+    } else {
+      data.messages.forEach((m) => {
+        addMessage(m.content, m.role === 'user' ? 'user' : 'agent', { conversationId: m.conversation_id });
+      });
+    }
+    renderMemoryPanel([]);
+    renderThreadList();
+    if (window.innerWidth <= 860) sidePanel.classList.remove('open');
   }
 
   // --- Attachment: picking a file doesn't send it right away — it stays
@@ -1377,20 +1606,35 @@
   });
   stagedRemoveBtn.addEventListener('click', () => setStagedFile(null));
 
-  async function sendMessage() {
-    const message = inputEl.value.trim();
-    const file = stagedFile;
-    if (!message && !file) return;
+  // Shows a failed turn as an error bubble with a Retry button that resends
+  // the exact same payload (message + file, re-read from the still-live
+  // File object) without making the user retype anything.
+  function addErrorMessageWithRetry(reason, retryCtx) {
+    const { row, bubble } = addMessage(`Error: ${reason}`, 'agent', { isError: true });
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.className = 'retry-btn';
+    retryBtn.textContent = 'Retry';
+    retryBtn.addEventListener('click', () => {
+      row.remove();
+      runTurn(retryCtx);
+    });
+    row.querySelector('.msg-bubble').appendChild(retryBtn);
+  }
 
-    addMessage(message || `📎 ${file.name}`, 'user');
-    inputEl.value = '';
-    inputEl.style.height = 'auto';
-    setStagedFile(null);
-
+  // Core turn runner, shared by a normal send, a retry, and an edit
+  // resubmit — it assumes the user's message bubble is already the last
+  // one in #messages (the caller is responsible for adding it).
+  async function runTurn({ message, file, editConversationId = null }) {
     const payload = {
       session_token: session.token,
-      message: message || `Here is the document "${file.name}". Summarize it and tell me what it contains.`
+      message: message || (file ? `Here is the document "${file.name}". Summarize it and tell me what it contains.` : '')
     };
+    if (editConversationId) {
+      payload.action = 'edit_message';
+      payload.conversation_id = editConversationId;
+    }
+    if (currentThreadId) payload.thread_id = currentThreadId;
 
     let pendingRow = null;
     if (file) {
@@ -1417,24 +1661,41 @@
         addSystemMessage("Session expired — please sign in again.", true);
       } else if (!res.ok || !data || data.error) {
         const reason = data && data.error ? data.error : `the server did not respond correctly (HTTP ${res.status})`;
-        addMessage(`Error: ${reason}`, 'agent', true);
+        addErrorMessageWithRetry(reason, { message, file, editConversationId });
       } else {
-        addMessage(data.reply, 'agent');
+        if (!currentThreadId) currentThreadId = data.thread_id;
+        const lastUserRow = [...messagesEl.querySelectorAll('.msg-row.user')].pop();
+        if (lastUserRow && data.user_message_id) attachConversationId(lastUserRow, data.user_message_id, message);
+
+        addMessage(data.reply, 'agent', { conversationId: data.assistant_message_id });
         renderMemoryPanel(data.memories_used);
         if (data.attachment_info) {
           const info = data.attachment_info;
           const truncNote = info.truncated ? ' (document truncated — too large to index in full)' : '';
           addSystemMessage(`📄 "${info.filename}" indexed — ${info.chunks_stored} passage(s) added to vector memory.${truncNote}`);
         }
-        loadHistory();
+        loadThreadList();
       }
     } catch (err) {
       if (pendingRow) pendingRow.remove();
-      addMessage(`Could not reach the agent: ${err.message}`, 'agent', true);
+      addErrorMessageWithRetry(`could not reach the agent (${err.message})`, { message, file, editConversationId });
     } finally {
       setBusyState(false);
       inputEl.focus();
     }
+  }
+
+  async function sendMessage() {
+    const message = inputEl.value.trim();
+    const file = stagedFile;
+    if (!message && !file) return;
+
+    addMessage(message || `📎 ${file.name}`, 'user');
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    setStagedFile(null);
+
+    await runTurn({ message, file });
   }
 
   sendBtn.addEventListener('click', sendMessage);
@@ -1451,19 +1712,7 @@
     inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
   });
 
-  clearBtn.addEventListener('click', () => clearModalOverlay.classList.add('show'));
-  clearModalCancel.addEventListener('click', () => clearModalOverlay.classList.remove('show'));
-  clearModalConfirm.addEventListener('click', () => {
-    clearModalOverlay.classList.remove('show');
-    resetChat();
-  });
-  clearModalOverlay.addEventListener('click', (e) => {
-    if (e.target === clearModalOverlay) clearModalOverlay.classList.remove('show');
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && clearModalOverlay.classList.contains('show')) clearModalOverlay.classList.remove('show');
-  });
-
+  newChatBtn.addEventListener('click', startNewThread);
   toggleMemoryBtn.addEventListener('click', () => sidePanel.classList.toggle('open'));
 
   // --- Startup: valid existing session -> go straight into the app,
