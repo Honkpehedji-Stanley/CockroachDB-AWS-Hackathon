@@ -107,6 +107,27 @@ CREATE TABLE public.memory_embeddings (
 );
 
 -- ------------------------------------------------------------
+-- Table : laws
+-- Rôle : catalogue des lois du Bénin (scrapées depuis sgg.gouv.bj) —
+-- la base de connaissances partagée de l'agent, distincte de la mémoire
+-- personnelle par utilisateur. Chaque loi est chunkée/embeddée dans
+-- memory_embeddings avec source_type='law', source_id=law_id, et
+-- user_id NULL (connaissance globale, pas rattachée à un utilisateur).
+-- ------------------------------------------------------------
+CREATE TABLE public.laws (
+    law_id         UUID NOT NULL DEFAULT gen_random_uuid(),
+    law_number     STRING NOT NULL,
+    title          STRING NOT NULL,
+    description    STRING NULL,
+    promulgated_on DATE NULL,
+    source_url     STRING NULL,
+    s3_key         STRING NULL,
+    created_at     TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
+    CONSTRAINT laws_pkey PRIMARY KEY (law_id ASC),
+    CONSTRAINT laws_law_number_unique UNIQUE (law_number)
+);
+
+-- ------------------------------------------------------------
 -- Table : sessions
 -- Rôle : jetons de session émis à la connexion (signup/login),
 -- consommés par le chat/l'upload pour authentifier chaque requête.

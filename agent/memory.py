@@ -261,13 +261,17 @@ def search_similar_memories(
     """
     Recherche par similarité vectorielle (distance L2, cohérente avec
     l'index `vector_l2_ops` créé sur memory_embeddings).
-    `source_type` (optionnel) filtre sur 'conversation' ou 'document'.
+    `source_type` (optionnel) filtre sur 'conversation', 'document' ou 'law'.
+
+    Cherche à la fois dans la mémoire personnelle de l'utilisateur
+    (user_id = %s) et dans la base de connaissances globale — les lois
+    ingérées avec user_id NULL, partagées par tous les utilisateurs.
     """
     query = """
         SELECT content, source_type, source_id, created_at,
                embedding <-> %s::VECTOR AS distance
         FROM memory_embeddings
-        WHERE user_id = %s
+        WHERE (user_id = %s OR user_id IS NULL)
     """
     params: list = [query_embedding, user_id]
     if source_type:
@@ -279,6 +283,56 @@ def search_similar_memories(
     with get_connection() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(query, params)
         return cur.fetchall()
+
+
+# ---------------------------------------------------------------------
+# Base de connaissances globale — lois du Bénin (scrapées, pas propres à
+# un utilisateur). Voir agent/ingest_laws.py pour le pipeline d'ingestion.
+# ---------------------------------------------------------------------
+
+def get_law_by_number(law_number: str) -> dict | None:
+    """Utilisé par le script d'ingestion pour la reprise (skip si déjà en base)."""
+    with get_connection() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("SELECT law_id FROM laws WHERE law_number = %s", (law_number,))
+        return cur.fetchone()
+
+
+def save_law(
+    law_number: str,
+    title: str,
+    description: str | None,
+    promulgated_on,
+    source_url: str,
+    s3_key: str,
+) -> str:
+    law_id = str(uuid.uuid4())
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO laws (law_id, law_number, title, description, promulgated_on, source_url, s3_key)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (law_id, law_number, title, description, promulgated_on, source_url, s3_key),
+        )
+        conn.commit()
+    return law_id
+
+
+def count_laws() -> int:
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM laws")
+        return cur.fetchone()[0]
+
+
+def get_laws_by_ids(law_ids: list[str]) -> dict[str, dict]:
+    """Métadonnées (numéro, titre) pour un lot de law_id — utilisé pour citer
+    la loi exacte dans le panneau Mémoire du frontend, pas juste afficher
+    un chunk de texte brut sans contexte."""
+    if not law_ids:
+        return {}
+    with get_connection() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("SELECT law_id, law_number, title FROM laws WHERE law_id = ANY(%s)", (law_ids,))
+        return {str(row["law_id"]): row for row in cur.fetchall()}
 
 
 def create_task(user_id: str, title: str, metadata: dict | None = None) -> str:

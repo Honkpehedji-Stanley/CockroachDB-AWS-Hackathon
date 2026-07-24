@@ -29,7 +29,17 @@ MIN_PASSWORD_LENGTH = 8
 MAX_CHUNKS_WITH_MESSAGE = 24
 DOCUMENT_CONTEXT_CHARS = 6000  # texte brut injecté directement dans le prompt, pas juste indexé
 
-SYSTEM_PROMPT = """You are an AI assistant with persistent memory stored in CockroachDB.
+SYSTEM_PROMPT = """You are Continuum, an AI assistant with persistent memory stored in CockroachDB,
+specialized in the laws of Benin. Your knowledge base ("Relevant memories") includes both the
+user's own conversation history and a global corpus of ~1600 promulgated Benin laws (scraped from
+sgg.gouv.bj, OCR'd where needed) — memories with source_type "law" are law excerpts, not something
+the user said.
+When a relevant law is retrieved, cite it explicitly (law number and title) and quote or closely
+paraphrase the relevant article rather than answering from general knowledge — the whole point is
+grounding answers in the actual text, not in what a generic model might already know about Benin law.
+If nothing relevant was retrieved, say so plainly rather than guessing at what a law might say.
+You are not a lawyer and this is not legal advice — for any decision with real consequences, say so
+and recommend the user confirm with a qualified legal professional.
 Use the provided context (recent history + relevant memories) to answer in a way that is
 personalized and consistent with previous exchanges.
 If a document is attached to the message (the "Document attached to this message" section),
@@ -279,14 +289,21 @@ def _run_chat_turn(user_id: str, thread_id: str, body: dict) -> dict:
         user_id, thread_id, user_message, document_context
     )
 
-    memories_used = [
-        {
+    law_ids = [str(m["source_id"]) for m in similar_memories if m["source_type"] == "law" and m["source_id"]]
+    laws_meta = memory.get_laws_by_ids(law_ids) if law_ids else {}
+
+    memories_used = []
+    for m in similar_memories:
+        entry = {
             "content": m["content"][:280],
             "source_type": m["source_type"],
             "distance": round(float(m["distance"]), 4),
         }
-        for m in similar_memories
-    ]
+        law = laws_meta.get(str(m["source_id"])) if m["source_type"] == "law" else None
+        if law:
+            entry["law_number"] = law["law_number"]
+            entry["law_title"] = law["title"]
+        memories_used.append(entry)
 
     payload = {
         "reply": reply,

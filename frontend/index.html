@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Continuum — Follow-up & Memory</title>
+<title>Continuum — Benin Law Assistant</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -885,7 +885,7 @@
   <span class="dot" id="status-dot"></span>
   <div class="title-block">
     <h1>Continuum</h1>
-    <span class="tagline">follow-up agent · CockroachDB memory × AWS</span>
+    <span class="tagline">Benin law assistant · CockroachDB memory × AWS</span>
   </div>
   <span class="status-pill" id="status-pill">not configured</span>
   <div class="theme-switch" role="group" aria-label="Theme">
@@ -918,22 +918,22 @@
     <div class="auth-hero">
       <span class="auth-hero-badge">CockroachDB × AWS Hackathon</span>
       <h1>Continuum</h1>
-      <p class="auth-hero-tagline">A follow-up agent with persistent memory: describe a symptom, send a lab report, come back in a future session — it still remembers.</p>
+      <p class="auth-hero-tagline">An AI assistant that knows the laws of Benin and remembers you: ask about your situation today, come back weeks later with a follow-up — it still has the full picture.</p>
       <ul class="auth-hero-points">
         <li>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          <span>Every conversation and document is stored in CockroachDB and persists across sessions.</span>
+          <span>~1,600 promulgated Benin laws, indexed in CockroachDB and cited by number and title.</span>
         </li>
         <li>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          <span>Vector search over your history grounds every reply in what you've actually told it before.</span>
+          <span>Vector search grounds every reply in the actual legal text, not general knowledge.</span>
         </li>
         <li>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          <span>Built for long-term follow-up, not one-off chats.</span>
+          <span>Every conversation persists across sessions — no repeating your situation from scratch.</span>
         </li>
       </ul>
-      <p class="auth-hero-disclaimer">Not a diagnostic or treatment tool — a memory layer for following up over time.</p>
+      <p class="auth-hero-disclaimer">Not legal advice — an information layer to help you find the right law faster. Confirm anything important with a qualified legal professional.</p>
     </div>
 
     <div class="auth-card">
@@ -984,7 +984,7 @@
     </div>
 
     <div id="memory-section" class="side-panel-section active">
-      <p class="sub">Memories (past conversations and indexed documents) that CockroachDB's vector search retrieved to build the last response, closest match first.</p>
+      <p class="sub">Memories (past conversations, uploaded documents, and Benin laws) that CockroachDB's vector search retrieved to build the last response, closest match first.</p>
       <div id="mem-content" class="mem-empty">No exchange yet.</div>
     </div>
 
@@ -1068,11 +1068,11 @@
 
   // Fixed URL: this frontend only ever talks to one deployment, no need for an editable field.
   const API_ENDPOINT = 'https://cuii8r8ija.execute-api.us-east-1.amazonaws.com';
-  const WELCOME = "Hi. I'm an agent with persistent memory in CockroachDB — built for long-term follow-up: describe a symptom, send me a lab report, come back in a future session, and I'll still remember.";
+  const WELCOME = "Hi. I'm Continuum — I know the promulgated laws of Benin and I remember our conversations across sessions. Ask about a legal situation, and I'll cite the actual law that applies.";
 
-  // Agent icon: an "activity" trace rather than a medical cross — evokes
-  // follow-up without posing as an official clinical symbol.
-  const AGENT_AVATAR_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>';
+  // Agent icon: a simple scale, evokes law without impersonating an
+  // official government or court emblem.
+  const AGENT_AVATAR_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3" x2="12" y2="21"></line><line x1="5" y1="7" x2="19" y2="7"></line><path d="M5 7l-3 7a3 3 0 0 0 6 0z"></path><path d="M19 7l-3 7a3 3 0 0 0 6 0z"></path></svg>';
 
   // Per-message action icons (copy / edit / copied-confirmation)
   const COPY_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
@@ -1129,12 +1129,17 @@
       return;
     }
     memContentEl.className = '';
-    memContentEl.innerHTML = memoriesUsed.map((m) => `
-      <div class="mem-record">
-        <div class="src">${escapeHtml(m.source_type || 'conversation')} · distance ${m.distance.toFixed(3)}</div>
-        <div>${escapeHtml(m.content)}</div>
-      </div>
-    `).join('');
+    memContentEl.innerHTML = memoriesUsed.map((m) => {
+      const label = m.law_number
+        ? `Loi N° ${escapeHtml(m.law_number)}${m.law_title ? ' — ' + escapeHtml(m.law_title) : ''}`
+        : escapeHtml(m.source_type || 'conversation');
+      return `
+        <div class="mem-record">
+          <div class="src">${label} · distance ${m.distance.toFixed(3)}</div>
+          <div>${escapeHtml(m.content)}</div>
+        </div>
+      `;
+    }).join('');
   }
 
   // --- "History" panel: one entry per distinct conversation (thread),

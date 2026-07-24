@@ -4,9 +4,9 @@
 
 ## 🎯 Le problème
 
-Un patient en suivi médical répète son histoire à chaque échange : les symptômes déjà décrits, les résultats d'examens déjà envoyés, ce qui a déjà été essayé. Un chatbot classique aggrave ce problème — il oublie tout entre deux sessions, donc "je te réexplique" devient la norme plutôt que l'exception.
+Au Bénin comme dans une grande partie de l'Afrique francophone, la loi existe mais reste largement inaccessible au citoyen ordinaire : les textes sont publiés en PDF (souvent scannés, sans couche texte) dispersés sur des centaines de pages d'un site gouvernemental, sans recherche sémantique ni suivi d'une question dans le temps. Un citoyen qui a une question sur le droit du travail, une création d'entreprise ou un litige foncier doit soit consulter un juriste, soit fouiller manuellement des centaines de lois — et repart de zéro à chaque nouvelle question.
 
-**Continuum** ne réinitialise jamais sa mémoire. Décris un symptôme aujourd'hui, envoie un compte-rendu d'examen la semaine prochaine, reviens dans un mois avec une question de suivi — l'agent retrouve exactement ce qui a été dit et lu, et construit sa réponse dessus. Précision importante : ce n'est **pas** un outil de diagnostic ou de traitement — c'est une couche de mémoire qui garde la continuité d'une conversation de suivi dans le temps, ce qui manque structurellement aux assistants IA classiques. La même architecture de mémoire se généralise à tout domaine où le contexte doit survivre entre plusieurs sessions (support client, suivi de projet, onboarding) — le suivi médical est le scénario qui la rend la plus concrète.
+**Continuum** ingère l'intégralité des lois promulguées du Bénin (~1600 textes officiels, extraits via OCR — Amazon Textract — quand le PDF source est un scan sans texte, ce qui concerne la grande majorité du corpus) dans une base de connaissances vectorielle CockroachDB, et garde en mémoire persistante chaque échange avec l'utilisateur. Décris ta situation aujourd'hui, reviens dans un mois avec une question liée — l'agent retrouve à la fois ce que tu lui as déjà dit et peut citer le texte de loi exact qui s'applique. Précision importante : ce n'est **pas** un outil de conseil juridique — c'est une couche d'accès à l'information légale, à vérifier auprès d'un professionnel du droit pour toute décision. Conçu pour le Bénin, avec une architecture qui se généralise sans changement à d'autres pays (autre corpus de lois à ingérer, rien d'autre à modifier).
 
 Ce projet utilise **CockroachDB** comme cerveau à long terme d'un agent IA déployé sur **AWS**, avec un raisonnement propulsé par **Amazon Bedrock**.
 
@@ -58,19 +58,21 @@ Diagramme détaillé (dont le déroulé complet d'un tour de conversation, mémo
 | Modèle de langage | **Amazon Bedrock** — Claude Sonnet 4.5 (via inference profile) |
 | Embeddings | **Amazon Titan Embeddings G1 - Text** (`amazon.titan-embed-text-v1`, 1536 dim) |
 | Stockage de documents | **Amazon S3** |
+| OCR (lois scannées) | **Amazon Textract** — la majorité des PDF de lois du Bénin sont des scans sans couche texte |
 | Frontend | HTML/JS statique (`frontend/index.html`), sans dépendance de build |
 
 Outils CockroachDB utilisés (minimum 2 requis par le hackathon) :
 - ✅ **CockroachDB Cloud Managed MCP Server** — appelé en autonomie par Claude (tool use) pour l'introspection du schéma et les requêtes de vérification
-- ✅ **Distributed Vector Indexing** — recherche par similarité sur `memory_embeddings`, validée avec discrimination multi-documents
+- ✅ **Distributed Vector Indexing** — recherche par similarité sur `memory_embeddings` (mémoire personnelle + base de connaissances globale des ~1600 lois du Bénin)
 - ✅ **ccloud CLI** — provisioning et gestion du cluster
-- ⬜ Agent Skills Repo *(à évaluer selon le temps disponible)*
+- ⬜ Agent Skills Repo *(non utilisé)*
 
 Service AWS utilisé (minimum 1 requis) :
 - ✅ **Amazon Bedrock** — Claude (raisonnement + tool use) et Titan (embeddings)
 - ✅ **AWS Lambda** — orchestration de l'agent, déployée en production (image Docker)
 - ✅ **Amazon API Gateway** (HTTP API) — endpoint public devant la Lambda
-- ✅ **Amazon S3** — stockage brut des documents avant ingestion
+- ✅ **Amazon S3** — stockage brut des documents et des lois avant ingestion
+- ✅ **Amazon Textract** — OCR asynchrone sur les lois scannées (`agent/ingest_laws.py`)
 
 ## 📁 Structure du repo
 
