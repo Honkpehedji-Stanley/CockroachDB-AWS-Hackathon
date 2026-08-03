@@ -6,6 +6,7 @@ et son embedding.
 """
 import base64
 import json
+import re
 import uuid
 
 import bedrock_client
@@ -31,13 +32,19 @@ DOCUMENT_CONTEXT_CHARS = 6000  # texte brut injecté directement dans le prompt,
 
 SYSTEM_PROMPT = """You are Continuum, an AI assistant with persistent memory stored in CockroachDB,
 specialized in the laws of Benin. Your knowledge base ("Relevant memories") includes both the
-user's own conversation history and a global corpus of ~1600 promulgated Benin laws (scraped from
-sgg.gouv.bj, OCR'd where needed) — memories with source_type "law" are law excerpts, not something
-the user said.
-When a relevant law is retrieved, cite it explicitly (law number and title) and quote or closely
-paraphrase the relevant article rather than answering from general knowledge — the whole point is
-grounding answers in the actual text, not in what a generic model might already know about Benin law.
-If nothing relevant was retrieved, say so plainly rather than guessing at what a law might say.
+user's own conversation history and a global corpus of ~1500 promulgated Benin laws (scraped from
+sgg.gouv.bj, OCR'd where needed). Each memory below is labeled with its source — a law entry looks
+like "[LAW N° <number> — <title>]" followed by the actual excerpt text; a past-conversation entry
+is labeled "[Your past conversation with this user]".
+
+Hard rule against fabrication: you may ONLY state a specific article number, section number, or
+exact/quoted legal text if that exact number or text literally appears in the excerpt below it in
+"Relevant memories". Never construct a plausible-sounding article number or quote that isn't
+actually present in the retrieved text, even if it would make the answer more satisfying — a
+fabricated citation is a worse outcome than admitting you don't have it. If none of the retrieved
+law excerpts actually address the question (check this honestly — matching keywords isn't the same
+as being on-topic), say plainly that you don't have a specific law on this in your database, rather
+than guessing or generalizing from what similar laws elsewhere might say.
 You are not a lawyer and this is not legal advice — for any decision with real consequences, say so
 and recommend the user confirm with a qualified legal professional.
 Use the provided context (recent history + relevant memories) to answer in a way that is
@@ -46,6 +53,40 @@ If a document is attached to the message (the "Document attached to this message
 base your answer primarily on its content rather than on memory search.
 If you need to inspect the database schema or run a verification query, use the MCP tools
 available to you."""
+
+
+UNVERIFIED_CITATION_NOTE = (
+    "\n\n⚠️ *One or more article numbers cited above could not be verified against the "
+    "retrieved source text — this may be inaccurate. Please confirm with a qualified legal "
+    "professional before relying on it.*"
+)
+
+
+CITATION_DISTANCE_THRESHOLD = 11.5  # au-delà, la loi la plus proche récupérée n'est probablement pas vraiment sur le sujet
+
+
+def _flag_unverified_citations(reply_text: str, similar_memories: list[dict]) -> str:
+    """Garde-fou contre les hallucinations de citations : Claude a montré qu'il peut citer
+    un numéro d'article précis ('Article 293 stipule que...') qui n'apparaît nulle part dans
+    le texte réellement récupéré — la seule instruction de prompt ne suffit pas à l'empêcher
+    de façon fiable (reproduit plusieurs fois sur le même scénario en test).
+
+    Une vérification texte-à-texte (le numéro cité apparaît-il dans les chunks récupérés ?) a
+    été essayée et abandonnée : l'OCR déforme trop souvent les chiffres eux-mêmes (ex. "53"
+    lu "S3"), ce qui produit des faux positifs sur des citations réellement bien ancrées. On
+    se base à la place sur la distance vectorielle de la meilleure correspondance "law" : dans
+    nos tests, les citations correctement ancrées venaient de correspondances à distance
+    ~10.9-11.2, les citations fabriquées de correspondances à distance ~12.3+ (rien de vraiment
+    pertinent trouvé). Seuil empirique, pas une preuve formelle — d'où un avertissement, pas un
+    blocage de la réponse.
+    """
+    if not re.search(r"[Aa]rticles?\s+\d+", reply_text):
+        return reply_text
+
+    law_distances = [m["distance"] for m in similar_memories if m["source_type"] == "law"]
+    if not law_distances or min(law_distances) > CITATION_DISTANCE_THRESHOLD:
+        return reply_text + UNVERIFIED_CITATION_NOTE
+    return reply_text
 
 
 def build_prompt_context(user_id: str, thread_id: str, user_message: str, document_context: str | None = None) -> tuple[str, list[dict]]:
@@ -61,7 +102,21 @@ def build_prompt_context(user_id: str, thread_id: str, user_message: str, docume
 
     query_embedding = bedrock_client.generate_embedding(user_message)
     similar = memory.search_similar_memories(user_id, query_embedding, top_k=5)
-    memories_text = "\n".join(f"- {m['content']} (distance={m['distance']:.3f})" for m in similar)
+
+    law_ids = [str(m["source_id"]) for m in similar if m["source_type"] == "law" and m["source_id"]]
+    laws_meta = memory.get_laws_by_ids(law_ids) if law_ids else {}
+
+    memory_lines = []
+    for m in similar:
+        law = laws_meta.get(str(m["source_id"])) if m["source_type"] == "law" else None
+        if law:
+            label = f"[LAW N° {law['law_number']} — {law['title']}]"
+        elif m["source_type"] == "document":
+            label = "[Excerpt from a document the user uploaded]"
+        else:
+            label = "[Your past conversation with this user]"
+        memory_lines.append(f"- {label} {m['content']} (distance={m['distance']:.3f})")
+    memories_text = "\n".join(memory_lines)
 
     document_block = f"## Document attached to this message\n{document_context}\n\n" if document_context else ""
 
@@ -102,6 +157,7 @@ def run_agent_turn(user_id: str, thread_id: str, user_message: str, document_con
         response = bedrock_client.call_claude(messages, tools=tools, system=SYSTEM_PROMPT)
 
     final_text = "".join(b["text"] for b in response["content"] if b["type"] == "text")
+    final_text = _flag_unverified_citations(final_text, similar_memories)
 
     # Persistance de la mémoire : conversation (scopée au fil) + embedding (global)
     user_conversation_id = memory.save_conversation(user_id, "user", user_message, thread_id)

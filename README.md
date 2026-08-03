@@ -6,7 +6,7 @@
 
 Au Bénin comme dans une grande partie de l'Afrique francophone, la loi existe mais reste largement inaccessible au citoyen ordinaire : les textes sont publiés en PDF (souvent scannés, sans couche texte) dispersés sur des centaines de pages d'un site gouvernemental, sans recherche sémantique ni suivi d'une question dans le temps. Un citoyen qui a une question sur le droit du travail, une création d'entreprise ou un litige foncier doit soit consulter un juriste, soit fouiller manuellement des centaines de lois — et repart de zéro à chaque nouvelle question.
 
-**Continuum** ingère l'intégralité des lois promulguées du Bénin (~1600 textes officiels, extraits via OCR — Amazon Textract — quand le PDF source est un scan sans texte, ce qui concerne la grande majorité du corpus) dans une base de connaissances vectorielle CockroachDB, et garde en mémoire persistante chaque échange avec l'utilisateur. Décris ta situation aujourd'hui, reviens dans un mois avec une question liée — l'agent retrouve à la fois ce que tu lui as déjà dit et peut citer le texte de loi exact qui s'applique. Précision importante : ce n'est **pas** un outil de conseil juridique — c'est une couche d'accès à l'information légale, à vérifier auprès d'un professionnel du droit pour toute décision. Conçu pour le Bénin, avec une architecture qui se généralise sans changement à d'autres pays (autre corpus de lois à ingérer, rien d'autre à modifier).
+**Continuum** ingère la quasi-totalité des lois promulguées du Bénin recensées sur le site officiel (1518 textes sur 1619, soit ~94% — le reste correspond à des échecs persistants de téléchargement ou d'OCR sur des documents spécifiques, pas un pipeline en pause ; détail dans le statut ci-dessous), extraits via OCR — Amazon Textract — quand le PDF source est un scan sans texte, ce qui concerne la grande majorité du corpus, dans une base de connaissances vectorielle CockroachDB, et garde en mémoire persistante chaque échange avec l'utilisateur. Décris ta situation aujourd'hui, reviens dans un mois avec une question liée — l'agent retrouve à la fois ce que tu lui as déjà dit et peut citer le texte de loi exact qui s'applique. Précision importante : ce n'est **pas** un outil de conseil juridique — c'est une couche d'accès à l'information légale, à vérifier auprès d'un professionnel du droit pour toute décision. Conçu pour le Bénin, avec une architecture qui se généralise sans changement à d'autres pays (autre corpus de lois à ingérer, rien d'autre à modifier).
 
 Ce projet utilise **CockroachDB** comme cerveau à long terme d'un agent IA déployé sur **AWS**, avec un raisonnement propulsé par **Amazon Bedrock**.
 
@@ -63,8 +63,8 @@ Diagramme détaillé (dont le déroulé complet d'un tour de conversation, mémo
 
 Outils CockroachDB utilisés (minimum 2 requis par le hackathon) :
 - ✅ **CockroachDB Cloud Managed MCP Server** — appelé en autonomie par Claude (tool use) pour l'introspection du schéma et les requêtes de vérification
-- ✅ **Distributed Vector Indexing** — recherche par similarité sur `memory_embeddings` (mémoire personnelle + base de connaissances globale des ~1600 lois du Bénin)
-- ✅ **ccloud CLI** — provisioning et gestion du cluster
+- ✅ **Distributed Vector Indexing** — recherche par similarité sur `memory_embeddings` (mémoire personnelle + base de connaissances globale de 1518 lois du Bénin, sur 1619 recensées)
+- ⬜ ccloud CLI *(utilisé, mais uniquement pour le provisioning humain du cluster en setup — `ccloud auth login` en local, aucun appel runtime depuis l'agent. Pas revendiqué comme un des outils du hackathon : ce n'est pas l'usage "agent-ready, accès direct au control plane" que la catégorie décrit.)*
 - ⬜ Agent Skills Repo *(non utilisé)*
 
 Service AWS utilisé (minimum 1 requis) :
@@ -111,6 +111,12 @@ Lambda handler fonctionnel (testé en local puis déployé), intégration Bedroc
 
 ### ✅ Phase 3 — RAG + mémoire vectorielle
 Ingestion de documents PDF et texte validée. Recherche vectorielle testée avec **discrimination multi-documents** (plusieurs documents sans rapport en mémoire, chaque question retrouve le bon document en tête du classement). Pipeline S3 → extraction → chunking → embedding → CockroachDB validé de bout en bout.
+
+### ✅ Phase 3bis — Corpus de lois du Bénin (base de connaissances globale)
+Scraping + ingestion réels exécutés contre [sgg.gouv.bj](https://sgg.gouv.bj/documentheque/lois/) (`agent/ingest_laws.py`), pas une preuve de concept sur un échantillon :
+- **1518 lois ingérées sur 1619 recensées (~94%)**, 20 495 chunks indexés dans `memory_embeddings` (`source_type='law'`, `user_id NULL`).
+- Bascule automatique **pypdf → OCR Amazon Textract** : la majorité des PDF sources sont des scans sans couche texte (vérifié via `pdffonts`/`pdfimages`, zéro police intégrée) ; pypdf est tenté en premier (rapide, gratuit), Textract prend le relais sinon.
+- Les 101 lois manquantes se répartissent en deux catégories, pas un chiffre flou : **~83 doublons de numéro de loi dans le listing du site lui-même** (le même `law_number` apparaît deux fois — la seconde tentative échoue sur la contrainte d'unicité, sans perte réelle) et **18 échecs persistants et confirmés** (2 erreurs 502 du serveur gouvernemental sur les mêmes documents, 13 PDF qui se téléchargent vides à chaque tentative, 1 timeout Textract sur un très long texte) — retestés deux fois, mêmes échecs à chaque fois, traités comme définitifs plutôt que retentés indéfiniment.
 
 ### ✅ Phase 4 — Déploiement production
 - Image Docker buildée et poussée sur **Amazon ECR**
