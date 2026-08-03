@@ -47,8 +47,16 @@ as being on-topic), say plainly that you don't have a specific law on this in yo
 than guessing or generalizing from what similar laws elsewhere might say.
 You are not a lawyer and this is not legal advice — for any decision with real consequences, say so
 and recommend the user confirm with a qualified legal professional.
-Use the provided context (recent history + relevant memories) to answer in a way that is
-personalized and consistent with previous exchanges.
+Always reply in the same language the user's current message is written in, regardless of what
+language the retrieved law excerpts or memories are in (they will usually be French, since Benin's
+laws are in French) — translate or paraphrase the substance into the user's language, never switch
+language just because the source material is in a different one.
+Use the provided context (recent history in this thread + other recent conversations with this user
+in different threads + relevant memories) to answer in a way that is personalized and consistent
+with previous exchanges. The "Other recent conversations" section exists because a purely semantic
+search over past conversations often fails on meta-questions like "what do you remember about me" —
+if asked something like that, look there and in recent history instead of assuming nothing exists
+just because vector search came up empty.
 If a document is attached to the message (the "Document attached to this message" section),
 base your answer primarily on its content rather than on memory search.
 If you need to inspect the database schema or run a verification query, use the MCP tools
@@ -100,6 +108,14 @@ def build_prompt_context(user_id: str, thread_id: str, user_message: str, docume
     recent = memory.get_recent_conversations(user_id, thread_id, limit=10)
     history_text = "\n".join(f"[{r['role']}] {r['content']}" for r in recent)
 
+    # Filet de sécurité pour les questions méta ("de quoi te souviens-tu ?") : ce genre de
+    # question n'a presque aucun recouvrement sémantique avec le contenu réel des échanges
+    # passés, donc la recherche vectorielle échoue souvent à les retrouver (vérifié : elle
+    # remonte des chunks de loi sans rapport avant la vraie conversation pertinente). On donne
+    # toujours un aperçu récent des autres fils, indépendamment de la pertinence sémantique.
+    other_threads = memory.get_recent_conversations_other_threads(user_id, thread_id, limit=6)
+    other_threads_text = "\n".join(f"[{r['role']}] {r['content']}" for r in other_threads)
+
     query_embedding = bedrock_client.generate_embedding(user_message)
     similar = memory.search_similar_memories(user_id, query_embedding, top_k=5)
 
@@ -123,10 +139,24 @@ def build_prompt_context(user_id: str, thread_id: str, user_message: str, docume
     context_block = (
         f"{document_block}"
         f"## Recent history\n{history_text or '(none)'}\n\n"
+        f"## Other recent conversations with this user (different threads)\n{other_threads_text or '(none)'}\n\n"
         f"## Relevant memories\n{memories_text or '(none)'}\n\n"
         f"## Current message\n{user_message}"
     )
     return context_block, similar
+
+
+TITLE_SYSTEM_PROMPT = "You generate short conversation titles. Reply with ONLY the title — no quotes, no punctuation at the end, max 6 words."
+
+
+def _generate_thread_title(user_message: str, reply: str) -> str:
+    """Titre représentatif du fil (façon ChatGPT), pas juste les 60 premiers caractères du
+    premier message tapé par l'utilisateur. Appelé une seule fois, au premier message d'un
+    fil (title encore NULL) — si l'appel échoue, l'appelant garde le titre de repli existant."""
+    prompt = f"Summarize this exchange as a short, specific conversation title:\n\nUser: {user_message[:300]}\nAssistant: {reply[:300]}"
+    response = bedrock_client.call_claude([{"role": "user", "content": prompt}], system=TITLE_SYSTEM_PROMPT)
+    title = "".join(b["text"] for b in response["content"] if b["type"] == "text").strip().strip('"')
+    return title[:60]
 
 
 def run_agent_turn(user_id: str, thread_id: str, user_message: str, document_context: str | None = None) -> tuple[str, list[dict], str, str]:
@@ -162,7 +192,14 @@ def run_agent_turn(user_id: str, thread_id: str, user_message: str, document_con
     # Persistance de la mémoire : conversation (scopée au fil) + embedding (global)
     user_conversation_id = memory.save_conversation(user_id, "user", user_message, thread_id)
     assistant_conversation_id = memory.save_conversation(user_id, "assistant", final_text, thread_id)
-    memory.touch_thread(thread_id, title_candidate=user_message)
+
+    is_new_thread = memory.get_thread_title(thread_id) is None
+    memory.touch_thread(thread_id, title_candidate=user_message)  # met à jour updated_at + titre de repli si encore vide
+    if is_new_thread:
+        try:
+            memory.set_thread_title(thread_id, _generate_thread_title(user_message, final_text))
+        except Exception:
+            pass  # le titre de repli (message tronqué) posé par touch_thread ci-dessus reste valable
 
     embedding = bedrock_client.generate_embedding(f"{user_message}\n{final_text}")
     memory.save_memory_embedding(user_id, f"{user_message}\n{final_text}", embedding)

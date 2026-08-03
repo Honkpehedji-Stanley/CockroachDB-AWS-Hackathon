@@ -217,6 +217,38 @@ def get_recent_conversations(user_id: str, thread_id: str, limit: int = 10) -> l
         return list(reversed(rows))  # ordre chronologique
 
 
+def get_recent_conversations_other_threads(user_id: str, thread_id: str, limit: int = 6) -> list[dict]:
+    """Derniers messages de l'utilisateur dans SES AUTRES fils — filet de sécurité pour les
+    questions méta ('de quoi te souviens-tu ?') que la recherche vectorielle rate souvent,
+    faute de recouvrement sémantique avec le contenu réel des échanges passés."""
+    with get_connection() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT role, content, created_at
+            FROM conversations
+            WHERE user_id = %s AND thread_id != %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (user_id, thread_id, limit),
+        )
+        rows = cur.fetchall()
+        return list(reversed(rows))
+
+
+def get_thread_title(thread_id: str) -> str | None:
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT title FROM threads WHERE thread_id = %s", (thread_id,))
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
+def set_thread_title(thread_id: str, title: str) -> None:
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE threads SET title = %s WHERE thread_id = %s", (title, thread_id))
+        conn.commit()
+
+
 def save_conversation(user_id: str, role: str, content: str, thread_id: str) -> str:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
